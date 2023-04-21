@@ -1,3 +1,17 @@
+* Table of Contents                                                     :TOC:
+- [[#show-dont-tell][Show, don't tell]]
+- [[#about-bind][About =bind=]]
+  - [[#metadata][Metadata]]
+  - [[#bind-prefix][=bind-prefix=]]
+  - [[#bind-repeat][=bind-repeat=]]
+  - [[#bind-autoload][=bind-autoload=]]
+  - [[#alias-bind-undo-to-unbind][Alias =bind-undo= to =unbind=]]
+  - [[#enhancing-bind][Enhancing =bind=]]
+- [[#comparison][Comparison]]
+- [[#package-configurator-support][Package Configurator Support]]
+  - [[#setupel][setup.el]]
+  - [[#use-package][use-package]]
+
 * Show, don't tell
 
 You have =define-key= function in Emacs, which binds a command to a key sequence in a map.
