@@ -1,6 +1,6 @@
 * Show, don't tell
 
-You have =define-key= function in Emacs, which binds a command to a key in a map.
+You have =define-key= function in Emacs, which binds a command to a key sequence in a map.
 
 #+begin_src elisp
  (define-key my-window-map "d" #'delete-window)
@@ -112,20 +112,13 @@ Shoot, something went wrong let me undo changes.
               "w" my-window-map))
 #+end_src
 
-Hmm, I still want to prefix my split commands with ~s~ key.
+I just want to unbind keys.
 
 #+begin_src elisp
-  (bind-undo (my-window-map
-              "h" #'windmove-left
-              "j" #'windmove-down
-              "k" #'windmove-up
-              "l" #'windmove-right)
-             (my-leader-map
-              "o" my-open-map
-              "w" my-window-map))
+  (bind-undo my-window-map "h" "j" "k" "l")
 #+end_src
 
-Hey, I want to make use of =repeat-mode= when enabled with my window keys.
+Hey, I want to make use of =repeat-mode=, when enabled, for my window keys.
 
 #+begin_src elisp
   (bind my-window-map
@@ -150,7 +143,7 @@ Let's bind some keys for [[https://github.com/minad/vertico][vertico]] package.
 	"C-<" #'vertico-first)
 #+end_src
 
-Hmm, can I prefix those modifier keys?
+Hmm, can I prefix those with a modifier key?
 
 #+begin_src elisp
   (bind vertico-map
@@ -174,7 +167,7 @@ Good! Let's autoload [[https://github.com/minad/vertico][vertico]] when a comman
           "r" #'vertico-repeat))
 #+end_src
 
-I am crazy. I want to put window movement commands under key ~m~ and layout commands under ~l~.
+I've gone mad. I want to put window movement commands under key ~m~ and layout commands under ~l~.
 
 #+begin_src elisp
   (bind my-window-map
@@ -236,14 +229,14 @@ I want to bind a command in =c-mode= locally.
 #+begin_src elisp
   (add-hook 'c-mode-hook
             (lambda ()
-              (bind (bind-local)
+              (bind (bind-local-map)
                     "k" #'my-command)))
 #+end_src
 
 Hmm, =(bind-local)= is a function and seems to be returning a keymap just like how =local-set-key= does. Is there a global counterpart, just to complement each other?
 
 #+begin_src elisp
-  (bind (bind-global) "SPC" my-leader-map)
+  (bind (bind-global-map) "SPC" my-leader-map)
 #+end_src
 
 Can I still remap a command just like in =define-key=?
@@ -252,7 +245,88 @@ Can I still remap a command just like in =define-key=?
   (bind help-map [remap define-function] #'my-define-function)
 #+end_src
 
-* TLDR
-* Custom functionality with own bind and processing functions
-* Comparison
-* use-package, setup support
+* About =bind=
+
+Syntax is =(bind FORM)= or =(bind (FORM)...)= so =(FORM)= is
+repeatable.
+
+=FORM='s first element can be a keymap, list of keymaps, a function
+returning keymap (=setq=) or keymaps (a user function).  It is
+quoted, if it is a keymap or a list of keymaps.
+
+=FORM='s rest elements must be bindings.  A binding is in the form
+of =KEY DEF= where =KEY= and =DEF= has the same specs as in
+=define-key=, in the case of =bind=.
+
+Here are some gists about =bind=.
+
+- Every key binding in Emacs lives in a key map. Instead of providing different functions for specific cases, =bind= suggests one function.
+- It is a macro yet it also wants to act like a function such that its arguments are mostly evaluated.
+- Putting multiple =bind= forms in one =bind= call is same as calling each one on its own.
+- There are processing functions like =bind-prefix=, =bind-autoload= etc. which takes bindings and acts on them and returns bindings, possibly modified. Those can be nested as however wanted. =bind= carries information, metadata, at upper levels to lower levels and then processing function propagates backwards.
+
+** Metadata
+
+=bind--metadata= is a lexical plist that carries information populated by upper bind calls to use from lower bind calls (nesting wise) so that information isn't repeated.
+
+=bind= only provides =bind-main= prop by resolving the main keymap by default.
+
+Following is the logic for resolving bind main, in order,
+
+=BIND-FIRST= is the first element of bind =FORM=.
+
+1. If =BIND-FIRST= is a keymap then =BIND-FIRST=
+2. If =BIND-FIRST= a function call then
+   1. If =BIND-FIRST= is a call to ='bind-safe= function (a symbol that has ='bind-safe= prop), then first of it is output
+   2. Otherwise first argument to function call (like to =setq=).
+3. Otherwise first element of =BIND-FIRST=.
+
+
+Only put 'bind-safe to a function if function doesn't mutate data.
+
+See [[id:bfc3dcb3-bba4-49cc-a976-fcb5e3a0fb07][=bind-autoload=]] for a use case.
+
+** =bind-prefix=
+
+Simplest processing function, prefixes each key with given prefix. Understands modifier prefixes.
+
+** =bind-repeat=
+
+Support for =repeat-mode=. Puts =repeat-map= property to definitions in bindings for bind =:main= property in metadata. Make sure =repeat-mode= is enabled.
+
+** =bind-autoload=
+:PROPERTIES:
+:ID:       bfc3dcb3-bba4-49cc-a976-fcb5e3a0fb07
+:END:
+
+Autoload definitions in bindings. If first argument to function is a symbol, then autoload that feature. Otherwise try to retrieve =:main-file= prop from metadata.
+
+=bind= doesn't provide that prop but package configurators usually have that info which they can provide it in their =bind= support.
+
+** Alias =bind-undo= to =unbind=
+
+=unbind= sounds nice with =bind= instead of =bind-undo=. It is not called that way because package conventions but no one is limiting you.
+
+** Enhancing =bind=
+
+*** =bind--definer=
+
+At the end of everything, =bind--definer= is called with =KEYMAP=, =KEY= and =DEF= (arguments to =define-key=). You can lexically change that variable and call =bind= in your own function for custom behaviors.
+
+*** Processor functions
+
+All a processor function must do is taking bindings and returning them, possibly modified. While doing so it can provide other utilities through bindings.
+
+User can easily define a processing function.  User is encouraged to make use of =bind-keyp=, =bind-foreach-key-def=, =bind-flatten1-key-of-bindings= and =bind-with-metadata= utility functions for their custom behavior.  See default processing functions' definitions for examples.
+
+=bind-flatten1-key-of-bindings= is especially useful because processing functions shouldn't assume bindings will be in =(KEY DEF)+= but =((KEY DEF)|((KEY DEF)+))+= form due to inner processing functions returning bindings in a list.
+
+See a processing function I use [[https://github.com/repelliuss/bind/wiki#prefix-keys-with-user-mode-local-key-sequence][here]].
+
+* TODO Comparison
+* TODO Package Configurator Support
+** setup.el
+
+** use-package
+
+
