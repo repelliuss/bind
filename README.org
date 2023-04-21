@@ -284,7 +284,7 @@ Following is the logic for resolving bind main, in order,
 
 Only put 'bind-safe to a function if function doesn't mutate data.
 
-See [[=bind-autoload=][=bind-autoload=]] for a use case.
+See =bind-autoload= for a use case.
 
 ** =bind-prefix=
 
