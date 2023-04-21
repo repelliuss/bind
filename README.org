@@ -1,1 +1,258 @@
-* TODO add readme
+* Show, don't tell
+
+You have =define-key= function in Emacs, which binds a command to a key in a map.
+
+#+begin_src elisp
+ (define-key my-window-map "d" #'delete-window)
+#+end_src
+
+This is how you do it with =bind=.
+
+#+begin_src elisp
+ (bind my-window-map "d" #'delete-window)
+#+end_src
+
+Hey, but first I have to define =my-window-map=.
+
+#+begin_src elisp
+ (bind (setq my-window-map (make-sparse-keymap)) "d" #'delete-window)
+#+end_src
+
+If you want to bind many commands to keys,
+
+#+begin_src elisp
+  (bind my-window-map
+        "h" #'windmove-left
+        "j" #'windmove-down
+        "k" #'windmove-up
+        "l" #'windmove-right)
+#+end_src
+
+If you want to bind those bindings in multiple maps,
+
+#+begin_src elisp
+  (bind (my-window-map my-other-window-map)
+        "h" #'windmove-left
+        "j" #'windmove-down
+        "k" #'windmove-up
+        "l" #'windmove-right)
+#+end_src
+
+I will be using those keymaps in multiple places.
+
+#+begin_src elisp
+  (defun my-window-keymaps ()
+    (list my-window-map my-other-window-map))
+
+  (bind (my-window-keymaps)
+        "h" #'windmove-left
+        "j" #'windmove-down
+        "k" #'windmove-up
+        "l" #'windmove-right)
+#+end_src
+
+I want to bind =my-open-map= I previously have.
+
+#+begin_src elisp
+  (bind my-window-map
+        "h" #'windmove-left
+        "j" #'windmove-down
+        "k" #'windmove-up
+        "l" #'windmove-right
+        "o" my-open-map)
+#+end_src
+
+Jeez, I forgot that I was going to do it in =my-leader-map=.
+
+#+begin_src elisp
+    (bind (my-window-map
+           "h" #'windmove-left
+           "j" #'windmove-down
+           "k" #'windmove-up
+           "l" #'windmove-right
+           "d" #'delete-window)
+          (my-leader-map
+           "o" my-open-map))
+#+end_src
+
+I want to prefix each window command with ~w~ key.
+
+#+begin_src elisp
+  (bind my-window-map
+        (bind-prefix "w"
+          "h" #'windmove-left
+          "j" #'windmove-down
+          "k" #'windmove-up
+          "l" #'windmove-right))
+#+end_src
+
+Never mind, I will just bind =my-window-map= to ~w~ in =my-leader-map=.
+
+#+begin_src elisp
+  (bind (my-window-map
+         "h" #'windmove-left
+         "j" #'windmove-down
+         "k" #'windmove-up
+         "l" #'windmove-right)
+        (my-leader-map
+         "o" my-open-map
+         "w" my-window-map))
+#+end_src
+
+Shoot, something went wrong let me undo changes.
+
+#+begin_src elisp
+  (bind-undo (my-window-map
+              "h" #'windmove-left
+              "j" #'windmove-down
+              "k" #'windmove-up
+              "l" #'windmove-right)
+             (my-leader-map
+              "o" my-open-map
+              "w" my-window-map))
+#+end_src
+
+Hmm, I still want to prefix my split commands with ~s~ key.
+
+#+begin_src elisp
+  (bind-undo (my-window-map
+              "h" #'windmove-left
+              "j" #'windmove-down
+              "k" #'windmove-up
+              "l" #'windmove-right)
+             (my-leader-map
+              "o" my-open-map
+              "w" my-window-map))
+#+end_src
+
+Hey, I want to make use of =repeat-mode= when enabled with my window keys.
+
+#+begin_src elisp
+  (bind my-window-map
+        (bind-repeat
+          "h" #'windmove-left
+          "j" #'windmove-down
+          "k" #'windmove-up
+          "l" #'windmove-right))
+#+end_src
+
+Let's bind some keys for [[https://github.com/minad/vertico][vertico]] package.
+
+#+begin_src elisp
+(bind vertico-map
+	"M-j" #'vertico-next
+	"M-k" #'vertico-previous
+	"M-J" #'vertico-next-group
+	"M-K" #'vertico-previous-group
+	"M->" #'vertico-scroll-up
+	"M-<" #'vertico-scroll-down
+	"C->" #'vertico-last
+	"C-<" #'vertico-first)
+#+end_src
+
+Hmm, can I prefix those modifier keys?
+
+#+begin_src elisp
+  (bind vertico-map
+        (bind-prefix "M-"
+          "j" #'vertico-next
+          "k" #'vertico-previous
+          "J" #'vertico-next-group
+          "K" #'vertico-previous-group
+          ">" #'vertico-scroll-up
+          "<" #'vertico-scroll-down)
+        (bind-prefix "C-"
+          ">" #'vertico-last
+          "<" #'vertico-first))
+#+end_src
+     
+Good! Let's autoload [[https://github.com/minad/vertico][vertico]] when a command is called in =my-leader-map= that is not yet loaded (and not autoloaded by package).
+
+#+begin_src elisp
+  (bind my-leader-map
+        (bind-autoload :vertico
+          "r" #'vertico-repeat))
+#+end_src
+
+I am crazy. I want to put window movement commands under key ~m~ and layout commands under ~l~.
+
+#+begin_src elisp
+  (bind my-window-map
+        (bind-prefix "m"
+          "h" #'windmove-left
+          "j" #'windmove-down
+          "k" #'windmove-up
+          "l" #'windmove-right)
+        "d" #'delete-window
+        "D" #'delete-other-windows
+        (bind-prefix "l"
+          "b" #'split-window-below
+          "r" #'split-window-right))
+#+end_src
+
+Hmm, it would be good if I could also repeat them and just autoload layout commands.
+
+#+begin_src elisp
+  (bind my-window-map
+        (bind-repeat
+          (bind-prefix "m"
+            "h" #'windmove-left
+            "j" #'windmove-down
+            "k" #'windmove-up
+            "l" #'windmove-right)
+          "d" #'delete-window
+          "D" #'delete-other-windows
+          (bind-autoload :my-package
+              (bind-prefix "l"
+                "b" #'split-window-below
+                "r" #'split-window-right))))
+#+end_src
+
+Let's bind =my-leader-map= to global map at the end.
+
+#+begin_src elisp
+  (bind (my-window-map
+         (bind-repeat
+           (bind-prefix "m"
+             "h" #'windmove-left
+             "j" #'windmove-down
+             "k" #'windmove-up
+             "l" #'windmove-right)
+           "d" #'delete-window
+           "D" #'delete-other-windows
+           (bind-autoload :my-package
+             (bind-prefix "l"
+               "b" #'split-window-below
+               "r" #'split-window-right))))
+        (my-leader-map
+         "o" my-open-map
+         "w" my-window-map)
+        (global-map
+         "SPC" my-leader-map))
+#+end_src
+
+I want to bind a command in =c-mode= locally.
+
+#+begin_src elisp
+  (add-hook 'c-mode-hook
+            (lambda ()
+              (bind (bind-local)
+                    "k" #'my-command)))
+#+end_src
+
+Hmm, =(bind-local)= is a function and seems to be returning a keymap just like how =local-set-key= does. Is there a global counterpart, just to complement each other?
+
+#+begin_src elisp
+  (bind (bind-global) "SPC" my-leader-map)
+#+end_src
+
+Can I still remap a command just like in =define-key=?
+
+#+begin_src elisp
+  (bind help-map [remap define-function] #'my-define-function)
+#+end_src
+
+* TLDR
+* Custom functionality with own bind and processing functions
+* Comparison
+* use-package, setup support
