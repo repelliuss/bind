@@ -5,12 +5,15 @@
   - [[#bind-prefix][=bind-prefix=]]
   - [[#bind-repeat][=bind-repeat=]]
   - [[#bind-autoload][=bind-autoload=]]
+  - [[#bind-which-key][=bind-which-key=]]
   - [[#alias-bind-undo-to-unbind][Alias =bind-undo= to =unbind=]]
   - [[#enhancing-bind][Enhancing =bind=]]
-- [[#comparison][Comparison]]
-- [[#package-configurator-support][Package Configurator Support]]
+- [[#comparison-with-other-key-binders][Comparison with other key binders]]
+- [[#package-configurator-support][Package configurator support]]
   - [[#setupel][setup.el]]
   - [[#use-package][use-package]]
+- [[#faq][FAQ]]
+  - [[#evil][evil]]
 
 * Show, don't tell
 
@@ -314,6 +317,8 @@ Autoload definitions in bindings. If first argument to function is a symbol, the
 
 =bind= doesn't provide that prop but package configurators usually have that info which they can provide it in their =bind= support.
 
+** TODO =bind-which-key=
+
 ** Alias =bind-undo= to =unbind=
 
 =unbind= sounds nice with =bind= instead of =bind-undo=. It is not called that way because package conventions but no one is limiting you.
@@ -334,10 +339,15 @@ User can easily define a processing function.  User is encouraged to make use of
 
 See a processing function I use [[https://github.com/repelliuss/bind/wiki#prefix-keys-with-user-mode-local-key-sequence][here]].
 
-* TODO Comparison
-* TODO Package Configurator Support
+* Comparison with other key binders
+
+*I believe* overall =bind= is simpler, more aesthetic and has a nicer interface, though others may have more functionality. This functionality /may/ be possible to do in =bind= but not yet provided. That functionality may also be overkill, i.e. =global-set-key= and =local-set-key=, and it may be achieved by other means without decompromising.
+
+* TODO Package configurator support
 ** setup.el
 
 ** use-package
 
-
+* FAQ
+** [[https://github.com/emacs-evil/evil][evil]]
+I've used =evil-mode= before but I am not sure of its requirements or why it needs a special treatment. I suppose a smart function/macro returning maps based on synonyms should be enough. I am open to talk about it.
