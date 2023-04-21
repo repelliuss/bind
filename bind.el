@@ -122,7 +122,7 @@ functions for their custom behavior.  See default processing
 functions' definitions for examples.
 
 See commentary or homepage for examples."
-  `(bind-with-metadata (:main-keymap (bind--main-keymap ',(car form)))
+  `(bind-with-metadata (:main (bind--resolve-main ',(car form)))
      (bind--mappings-foreach-keymap ,(car form) (list ,@(cdr form)))))
 
 (defmacro bind--multiple (form-prefix forms)
@@ -134,17 +134,31 @@ example, its value is `(bind--singular)' when called by `bind'."
       (setq singular-binds (nconc singular-binds `((,@form-prefix ,form)))))
     (macroexp-progn singular-binds)))
 
-(defmacro bind--main-keymap (bind-first)
-  "Extract main keymap from BIND-FIRST argument of `bind' form.
-Main keymap is the keymap given to bind form or first of the given keymaps.
-Main keymap can be used by binding processor calls.  For example, `bind-repeat'
+(defmacro bind--resolve-main (bind-first)
+  "Extract bind main from BIND-FIRST argument of `bind' form.
+Following is the logic for resolving bind main, in order,
+
+1. If BIND-FIRST is a keymap then BIND-FIRST
+2. If BIND-FIRST a function call then
+2.1 If BIND-FIRST is a call to 'bind-safe function
+    (a symbol that has 'bind-safe prop), then first of it is output
+2.2 Otherwise first argument to function call (like to `setq').
+3. Otherwise first element of BIND-FIRST
+
+Only put 'bind-safe to a function if function doesn't mutate data.
+
+Bind main can be used by binding processor calls.  For example, `bind-repeat'
 uses it as a place for putting definitions 'repeat-map prop.
 
 BIND-FIRST is the first element of bind form.  See `bind--singular' for
 what a form is."
   `(cond
-    ((or (symbolp ,bind-first) (fboundp (car ,bind-first))) ,bind-first)
-    (t (car ,bind-first))))		; list of keymaps
+    ((symbolp ,bind-first) ,bind-first) ; itself
+    ((fboundp (car ,bind-first))
+     (if (get (car ,bind-first) 'bind-safe)
+	 (car (eval ,bind-first))	; first elt of return of function
+       (cadr ,bind-first)))		; first arg to function
+    (t (car ,bind-first))))		; first of list of keymaps
 
 (defun bind--singularp (form)
   "T if `bind' FORM doesn't contain multiple `bind' forms."
@@ -176,10 +190,14 @@ and return the expected form."
     (bind-foreach-key-def bindings
       (lambda (key def)
 	(if (not (consp key))
-	    (setq new-bindings (nconc new-bindings (list key def)))
+	    (setq new-bindings (nconc new-bindings (if def
+						       (list key def)
+						     (list key))))
 	  (setq new-bindings (nconc new-bindings key))
-	  (if (consp def)
-	      (setq new-bindings (nconc new-bindings def))))))
+	  (if def
+	      (setq new-bindings (nconc new-bindings (if (consp def)
+							 def
+						       (list def))))))))
     new-bindings))
 
 (defmacro bind-with-metadata (plist &rest body)
@@ -252,17 +270,17 @@ configurator."
   bindings)
 
 (defun bind-repeat (&rest bindings)
-  "Add repeating functionality to each DEF in BINDINGS for :main-keymap metadata.
+  "Add repeating functionality to each DEF in BINDINGS for :main metadata.
 This requires `repeat-mode' to be active to take effect."
   (declare (indent 0))
   (setq bindings (bind-flatten1-key-of-bindings bindings))
-  (let ((main-keymap (plist-get bind--metadata :main-keymap)))
-    (if (keymapp (symbol-value main-keymap))
+  (let ((main (plist-get bind--metadata :main)))
+    (if (keymapp (symbol-value main))
 	(bind-foreach-key-def bindings
 	  (lambda (_key def)
-	    (put def 'repeat-map main-keymap)))
+	    (put def 'repeat-map main)))
       (display-warning 'bind-repeat
-		       (format "Couldn't repeat bindings: %s. No main keymap given." bindings))))
+		       (format "Couldn't repeat bindings: %s. No bind main given." bindings))))
   bindings)
 
 (provide 'bind)
