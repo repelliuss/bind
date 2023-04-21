@@ -284,7 +284,7 @@ Following is the logic for resolving bind main, in order,
 
 Only put 'bind-safe to a function if function doesn't mutate data.
 
-See [[id:bfc3dcb3-bba4-49cc-a976-fcb5e3a0fb07][=bind-autoload=]] for a use case.
+See [[=bind-autoload=][=bind-autoload=]] for a use case.
 
 ** =bind-prefix=
 
@@ -295,9 +295,6 @@ Simplest processing function, prefixes each key with given prefix. Understands m
 Support for =repeat-mode=. Puts =repeat-map= property to definitions in bindings for bind =:main= property in metadata. Make sure =repeat-mode= is enabled.
 
 ** =bind-autoload=
-:PROPERTIES:
-:ID:       bfc3dcb3-bba4-49cc-a976-fcb5e3a0fb07
-:END:
 
 Autoload definitions in bindings. If first argument to function is a symbol, then autoload that feature. Otherwise try to retrieve =:main-file= prop from metadata.
 
