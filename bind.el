@@ -157,8 +157,13 @@ functions for their custom behavior.  See default processing
 functions' definitions for examples.
 
 See commentary or homepage for examples."
-  `(bind-with-metadata (:main (bind--resolve-main ',(car form)))
-     (bind--mappings-foreach-keymap ,(car form) (list ,@(cdr form)))))
+  (let ((first (car form)))
+    `(bind-with-metadata (:main (bind--resolve-main ',first))
+       (bind--mappings-foreach-keymap ,(if (or (not (consp first))
+					       (fboundp (car first)))
+					   first
+					 `(list ,@first))
+				      (list ,@(cdr form))))))
 
 (defmacro bind--multiple (form-prefix forms)
   "Bind multiple `bind' FORMS.
