@@ -389,11 +389,11 @@ In the [[extensions/]] directory, you can grab your particular configuration. Th
 
 ** setup.el
 
-See =(bind-setup-integrate keyword)= which will add KEYWORD to =setup=. Please read commentary for what it brings.
+See =(bind-setup-integrate keyword)= which will add KEYWORD to =setup=. Please read [[https://github.com/repelliuss/bind/blob/3a9bcb8d7e42aca57a982565f05a80b2682e7370/extensions/bind-setup.el#L30][commentary]] for what it brings.
 
 ** use-package
 
-See =(bind-use-package-integrate keyword &optional anchor after test)= which will add KEYWORD to =use-package=. Please read commentary for what it brings.
+See =(bind-use-package-integrate keyword &optional anchor after test)= which will add KEYWORD to =use-package=. Please read [[https://github.com/repelliuss/bind/blob/3a9bcb8d7e42aca57a982565f05a80b2682e7370/extensions/bind-use-package.el#L30][commentary]] for what it brings.
 
 * FAQ
 ** [[https://github.com/emacs-evil/evil][evil]]
