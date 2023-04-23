@@ -5,7 +5,6 @@
   - [[#bind-prefix][=bind-prefix=]]
   - [[#bind-repeat][=bind-repeat=]]
   - [[#bind-autoload][=bind-autoload=]]
-  - [[#bind-which-key][=bind-which-key=]]
   - [[#alias-bind-undo-to-unbind][Alias =bind-undo= to =unbind=]]
   - [[#enhancing-bind][Enhancing =bind=]]
 - [[#comparison-with-other-key-binders][Comparison with other key binders]]
@@ -262,6 +261,10 @@ Can I still remap a command just like in =define-key=?
   (bind help-map [remap define-function] #'my-define-function)
 #+end_src
 
+* Upstreams
+
+I plan to get this on MELPA as of now.
+
 * About =bind=
 
 Syntax is =(bind FORM)= or =(bind (FORM)...)= so =(FORM)= is
@@ -278,7 +281,6 @@ of =KEY DEF= where =KEY= and =DEF= has the same specs as in
 Here are some gists about =bind=.
 
 - Every key binding in Emacs lives in a key map. Instead of providing different functions for specific cases, =bind= suggests one function.
-- It is a macro yet it also wants to act like a function such that its arguments are mostly evaluated.
 - Putting multiple =bind= forms in one =bind= call is same as calling each one on its own.
 - There are processing functions like =bind-prefix=, =bind-autoload= etc. which takes bindings and acts on them and returns bindings, possibly modified. Those can be nested as however wanted. =bind= carries information, metadata, at upper levels to lower levels and then processing function propagates backwards.
 
@@ -317,7 +319,13 @@ Autoload definitions in bindings. If first argument to function is a symbol, the
 
 =bind= doesn't provide that prop but package configurators usually have that info which they can provide it in their =bind= support.
 
-** TODO =bind-which-key=
+** =bind-save=
+
+Return a save of current definitions instead of binding them in =bind= FORM. This way, you can safely use =bind= and restore in case the result is unwanted.
+
+** =bind-restore=
+
+Restores a save returned from =bind-save=.
 
 ** Alias =bind-undo= to =unbind=
 
@@ -343,10 +351,17 @@ See a processing function I use [[https://github.com/repelliuss/bind/wiki#prefix
 
 *I believe* overall =bind= is simpler, more aesthetic and has a nicer interface, though others may have more functionality. This functionality /may/ be possible to do in =bind= but not yet provided. That functionality may also be overkill, i.e. =global-set-key= and =local-set-key=, and it may be achieved by other means without decompromising.
 
-* TODO Package configurator support
+* Package configurator support
+
+In the [[extensions/]] directory, you can grab your particular configuration. These won't be installed by default so you have to manually install them or through your package manager if it has a support for this.
+
 ** setup.el
 
+See =(bind-setup-integrate keyword)= which will add KEYWORD to =setup=. Please read commentary for what it brings.
+
 ** use-package
+
+See =(bind-use-package-integrate keyword &optional anchor after test)= which will add KEYWORD to =use-package=. Please read commentary for what it brings.
 
 * FAQ
 ** [[https://github.com/emacs-evil/evil][evil]]

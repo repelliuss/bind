@@ -7,8 +7,8 @@
 ;; Created: March 26, 2023
 ;; Modified: March 26, 2023
 ;; Version: 0.9.0
-;; Package-Requires: ((emacs "24.3"))
-;; Keywords: convenience
+;; Package-Requires: ((emacs "25.1"))
+
 ;; Homepage: https://github.com/repelliuss/bind
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -65,6 +65,38 @@ This is to be be used with `bind-undo'."
   (define-key keymap key nil)
   (if (bind-keyp def)
       (define-key keymap def nil)))
+
+(defun bind--definer-save (keymap key def)
+  "Store existing definition of KEY in KEYMAP.
+Value is stored in `bind--savings' such a way that `bind''s form is kept
+as much as possible."
+  (when-let ((keymap-name (bind--find-keymap-name keymap)))
+    (let ((keymap-savings (alist-get keymap-name bind--savings))
+	  (cur-def (lookup-key keymap key)))
+      (unless keymap-savings
+	(push (list keymap-name) bind--savings))
+      (setf (cdr (assoc keymap-name bind--savings))
+	    (nconc keymap-savings (list key
+					(if (keymapp cur-def)
+					    (bind--find-keymap-name cur-def)
+					  cur-def)))))))
+
+(defun bind--find-keymap-name (keymap)
+  "Find the name of the variable with value KEYMAP.
+Return nil if KEYMAP is not a valid keymap, or if there is no
+variable with value KEYMAP.
+
+This function is a copy of `help-fns-find-keymap-name'."
+  (when (keymapp keymap)
+    (let ((name (catch 'found-keymap
+                  (mapatoms (lambda (symb)
+                              (when (and (boundp symb)
+                                         (eq (symbol-value symb) keymap)
+                                         (not (eq symb 'keymap))
+                                         (throw 'found-keymap symb)))))
+                  nil)))
+      ;; Follow aliasing.
+      (or (ignore-errors (indirect-variable name)) name))))
 
 (defun bind--mappings-in-keymap (keymap bindings)
   "Actualize defining each key def mapping in BINDINGS to KEYMAP."
@@ -166,6 +198,23 @@ what a form is."
     (or (bind-keyp second)
 	(and (symbolp (car second)) (fboundp (car second))))))
 
+(defun bind--map-insertable-formp (form)
+  "Return action for singular BIND FORM if a map can be insertable.
+This function is only used by extensions for package configurator
+support.
+
+# in code comments show where the map will be inserted."
+  (cond
+   ((bind-keyp (car form)) 'yes)	; (bind # ...)
+   ((symbolp (car form)) 'no)		; (bind map ...)
+   ((or (eq 'quote (caar form))
+	(not (symbolp (caar form)))) (error (concat "Bad FORM given to USE-PACKAGE :BIND. If (car FORM) "
+						    "neither key or symbol, then (caar FORM) must "
+						    "be equivalent to (SYMBOL ...).")))
+   ((not (fboundp (caar form))) 'yes-merge) ; (bind (# map) ...)
+   ((string-prefix-p "bind-" (symbol-name (caar form))) 'yes) ; (bind # (bind-* ...) ...)
+   (t 'no)))				; (bind (function ...) ...)
+
 (defun bind-keyp (exp)
   "T if EXP is a valid key for `define-key'."
   (or (stringp exp) (vectorp exp)))
@@ -186,19 +235,19 @@ processor function) and one that probably uses
 `bind-foreach-key-def' expects bindings to be in the form of (KEY
 DEF...).  This function can be used to merge list of new bindings
 and return the expected form."
-  (let (new-bindings)
-    (bind-foreach-key-def bindings
-      (lambda (key def)
-	(if (not (consp key))
-	    (setq new-bindings (nconc new-bindings (if def
-						       (list key def)
-						     (list key))))
-	  (setq new-bindings (nconc new-bindings key))
-	  (if def
-	      (setq new-bindings (nconc new-bindings (if (consp def)
-							 def
-						       (list def))))))))
-    new-bindings))
+  (let (new-bindings
+	(next-keyp t))
+    (while bindings
+      (let ((cur (car bindings)))
+	(if next-keyp
+	    (if (consp cur)
+		(setq new-bindings (nconc (nreverse cur) new-bindings))
+	      (push cur new-bindings)
+	      (setq next-keyp nil))
+	  (push cur new-bindings)
+	  (setq next-keyp t)))
+      (setq bindings (cdr bindings)))
+    (nreverse new-bindings)))
 
 (defmacro bind-with-metadata (plist &rest body)
   "Evaluate BODY with PLIST merged with `bind--metadata'."
@@ -206,10 +255,12 @@ and return the expected form."
   `(let* ((bind--metadata (append (list ,@plist) bind--metadata)))
      ,@body))
 
+;;;###autoload
 (defun bind-global-map ()
   "Return `current-global-map'."
   (current-global-map))
 
+;;;###autoload
 (defun bind-local-map ()
   "Return local map while replicating the behavior of `local-set-key'."
   (or (current-local-map)
@@ -217,6 +268,7 @@ and return the expected form."
 	(use-local-map local-map)
 	local-map)))
 
+;;;###autoload
 (defmacro bind (&rest form-or-forms)
   "Bind many keys to many keymaps, multiple times.
 Syntax is `(bind FORM)' or `(bind (FORM)...)' so (FORM) is
@@ -226,11 +278,33 @@ FORM-OR-FORMS can be a single FORM or list of FORMs."
       `(bind--singular ,form-or-forms)
     `(bind--multiple (bind--singular) ,form-or-forms)))
 
+;;;###autoload
 (defmacro bind-undo (&rest form)
   "Undo (or unbind) `bind' FORM keys."
   `(let ((bind--definer #'bind--definer-unbind))
      (bind ,@form)))
 
+;;;###autoload
+(defmacro bind-save (&rest form)
+  "Return a save of current definitions of key sequences for debugging.
+This function doesn't bind anything but return current
+definitions so that returned save can be restored with
+`bind-restore' after FORM is executed with `bind' in case the
+result is unwanted.
+
+This function still evaluates functions inside FORM like
+`bind-repeat', so it is not side effect free."
+  `(let (bind--savings
+	 (bind--definer #'bind--definer-save))
+     (bind ,@form)
+     bind--savings))
+
+;;;###autoload
+(defmacro bind-restore (save)
+  "Restore definitions in SAVE from `bind-save'."
+  `(bind ,@(eval save)))
+
+;;;###autoload
 (defun bind-prefix (prefix &rest bindings)
   "Prefix each KEY in BINDINGS with PREFIX of KEY is a string.
 PREFIX can also be ending with a modifier, such as C-, S- C-S-
@@ -251,6 +325,7 @@ etc."
 	      new-bindings)))
     new-bindings))
 
+;;;###autoload
 (defun bind-autoload (&optional file-as-symbol-or-key &rest bindings)
   "If FILE-AS-SYMBOL-OR-KEY if symbol autoload DEF in BINDINGS or use metadata.
 Note that `bind' doesn't provide :main-file prop so user must
@@ -269,6 +344,7 @@ configurator."
 	(autoload def file nil t))))
   bindings)
 
+;;;###autoload
 (defun bind-repeat (&rest bindings)
   "Add repeating functionality to each DEF in BINDINGS for :main metadata.
 This requires `repeat-mode' to be active to take effect."
