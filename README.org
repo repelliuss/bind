@@ -243,7 +243,14 @@ Let's bind =my-leader-map= to global map at the end.
          "SPC" my-leader-map))
 #+end_src
 
-I want to bind a command in =c-mode= locally.
+Can I provide a string like in =define-key=?
+
+#+begin_src elisp
+  (bind my-window-map
+        "d" (cons "Delete current window" #'delete-window))
+#+end_src
+
+Great! So it is =define-key= like at the end. Now I want to bind a command in =c-mode= locally.
 
 #+begin_src elisp
   (add-hook 'c-mode-hook
@@ -262,6 +269,28 @@ Can I still remap a command just like in =define-key=?
 
 #+begin_src elisp
   (bind help-map [remap define-function] #'my-define-function)
+#+end_src
+
+All is good, but sometimes I do mistakes and lose my previous bindings. Is there a way I can safely =bind= keys?
+
+#+begin_src elisp
+  ;; create a save of current definitions
+  (setq save
+        (bind-save (bind-global-map)
+                   "h" #'windmove-left
+                   "j" #'windmove-down
+                   "k" #'windmove-up
+                   "l" #'windmove-right))
+
+  ;; bind new definitions
+  (bind (bind-global-map)
+        "h" #'windmove-left
+        "j" #'windmove-down
+        "k" #'windmove-up
+        "l" #'windmove-right)
+
+  ;; restore old definitions
+  (bind-restore save)
 #+end_src
 
 * Upstreams
