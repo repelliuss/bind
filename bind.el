@@ -59,6 +59,9 @@ resolved.  For example it can define the key or unbind it such as
 this is called."
   :type 'function)
 
+(defvar bind--savings nil
+  "A lexical variable used by `bind-save'.")
+
 (defun bind--definer-unbind (keymap key def)
   "Unbind KEY from KEYMAP and DEF from KEYMAP if DEF is actually a key.
 This is to be be used with `bind-undo'."
@@ -66,7 +69,7 @@ This is to be be used with `bind-undo'."
   (if (bind-keyp def)
       (define-key keymap def nil)))
 
-(defun bind--definer-save (keymap key def)
+(defun bind--definer-save (keymap key _def)
   "Store existing definition of KEY in KEYMAP.
 Value is stored in `bind--savings' such a way that `bind''s form is kept
 as much as possible."
