@@ -77,9 +77,9 @@ as much as possible."
 	(push (list keymap-name) bind--savings))
       (setf (cdr (assoc keymap-name bind--savings))
 	    (nconc keymap-savings (list key
-					(if (keymapp cur-def)
-					    (bind--find-keymap-name cur-def)
-					  cur-def)))))))
+					(cond
+					 ((keymapp cur-def) (bind--find-keymap-name cur-def))
+					 (t `(quote ,cur-def)))))))))
 
 (defun bind--find-keymap-name (keymap)
   "Find the name of the variable with value KEYMAP.
