@@ -30,11 +30,11 @@
 ;; Adds support for bind.el in use-package
 ;; `:main-file' metadata inserted so `bind-autoload' doesn't need explicit file name.
 ;; Active map of current use-package context is inserted to *first FORM of `bind' FORM if it
-;; is insertable.  For example, if no map is given or list of maps is given explicitly.
+;; is insertable. It is insertable if no map is given or a list of maps are given explicitly.
 ;; For example,
 ;; (bind c-mode-map "c" #'foo ...), the map won't be inserted.
-;; (bind "c" #'foo), the map will be inserted.
-;; (bind (c-mode-map) "c" #'foo), the map will be inserted.
+;; (bind "c" #'foo), the map will be inserted and act like (bind pkg-mode-map "c" #'foo)
+;; (bind (c-mode-map) "c" #'foo), the map will be inserted and act like (bind (pkg-mode-map c-mode-map) "c" #'foo).
 ;; (bind (my-function-returning-maps) "c" #'foo), the map won't be inserted.
 ;; Note that if there are multiple `bind' FORMS, the first one will be selected.
 
