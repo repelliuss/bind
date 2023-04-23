@@ -2,7 +2,6 @@
 - [[#show-dont-tell][Show, don't tell]]
 - [[#upstreams][Upstreams]]
 - [[#about-bind][About =bind=]]
-  - [[#metadata][Metadata]]
   - [[#bind-prefix][=bind-prefix=]]
   - [[#bind-repeat][=bind-repeat=]]
   - [[#bind-autoload][=bind-autoload=]]
@@ -18,6 +17,8 @@
   - [[#evil][evil]]
 
 * Show, don't tell
+
+Key bindings live in keymaps and keymaps are active depending on active major mode and minor modes.
 
 You have =define-key= function in Emacs, which binds a command to a key sequence in a map.
 
@@ -316,27 +317,6 @@ Here are some gists about =bind=.
 - Putting multiple =bind= forms in one =bind= call is same as calling each one on its own.
 - There are processing functions like =bind-prefix=, =bind-autoload= etc. which takes bindings and acts on them and returns bindings, possibly modified. Those can be nested as however wanted. =bind= carries information, metadata, at upper levels to lower levels and then processing function propagates backwards.
 
-** Metadata
-
-=bind--metadata= is a lexical plist that carries information populated by upper bind calls to use from lower bind calls (nesting wise) so that information isn't repeated.
-
-=bind= only provides =bind-main= prop by resolving the main keymap by default.
-
-Following is the logic for resolving bind main, in order,
-
-=BIND-FIRST= is the first element of bind =FORM=.
-
-1. If =BIND-FIRST= is a keymap then =BIND-FIRST=
-2. If =BIND-FIRST= a function call then
-   1. If =BIND-FIRST= is a call to ='bind-safe= function (a symbol that has ='bind-safe= prop), then first of it is output
-   2. Otherwise first argument to function call (like to =setq=).
-3. Otherwise first element of =BIND-FIRST=.
-
-
-Only put 'bind-safe to a function if function doesn't mutate data.
-
-See =bind-autoload= for a use case.
-
 ** =bind-prefix=
 
 Simplest processing function, prefixes each key with given prefix. Understands modifier prefixes.
@@ -364,10 +344,30 @@ Restores a save returned from =bind-save=.
 =unbind= sounds nice with =bind= instead of =bind-undo=. It is not called that way because package conventions but no one is limiting you.
 
 ** Enhancing =bind=
-
 *** =bind--definer=
 
 At the end of everything, =bind--definer= is called with =KEYMAP=, =KEY= and =DEF= (arguments to =define-key=). You can lexically change that variable and call =bind= in your own function for custom behaviors.
+
+*** Metadata
+
+=bind--metadata= is a lexical plist that carries information populated by upper bind calls to use from lower bind calls (nesting wise) so that information isn't repeated.
+
+=bind= only provides =bind-main= prop by resolving the main keymap by default.
+
+Following is the logic for resolving bind main, in order,
+
+=BIND-FIRST= is the first element of bind =FORM=.
+
+1. If =BIND-FIRST= is a keymap then =BIND-FIRST=
+2. If =BIND-FIRST= a function call then
+   1. If =BIND-FIRST= is a call to ='bind-safe= function (a symbol that has ='bind-safe= prop), then first of it is output
+   2. Otherwise first argument to function call (like to =setq=).
+3. Otherwise first element of =BIND-FIRST=.
+
+
+Only put 'bind-safe to a function if function doesn't mutate data.
+
+See =bind-autoload= for a use case.
 
 *** Processor functions
 
