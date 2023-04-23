@@ -1,10 +1,13 @@
 * Table of Contents                                                     :TOC:
 - [[#show-dont-tell][Show, don't tell]]
+- [[#upstreams][Upstreams]]
 - [[#about-bind][About =bind=]]
   - [[#metadata][Metadata]]
   - [[#bind-prefix][=bind-prefix=]]
   - [[#bind-repeat][=bind-repeat=]]
   - [[#bind-autoload][=bind-autoload=]]
+  - [[#bind-save][=bind-save=]]
+  - [[#bind-restore][=bind-restore=]]
   - [[#alias-bind-undo-to-unbind][Alias =bind-undo= to =unbind=]]
   - [[#enhancing-bind][Enhancing =bind=]]
 - [[#comparison-with-other-key-binders][Comparison with other key binders]]
