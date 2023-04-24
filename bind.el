@@ -352,6 +352,7 @@ configurator."
 	(autoload def file nil t))))
   bindings)
 
+;; TODO: add target map support
 ;;;###autoload
 (defun bind-repeat (&rest bindings)
   "Add repeating functionality to each DEF in BINDINGS for :main metadata.
