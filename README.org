@@ -260,7 +260,7 @@ Great! So it is =define-key= like at the end. Now I want to bind a command in =c
                     "k" #'my-command)))
 #+end_src
 
-Hmm, =(bind-local)= is a function and seems to be returning a keymap just like how =local-set-key= does. Is there a global counterpart, just to complement each other?
+Hmm, =(bind-local-map)= is a function and seems to be returning a keymap just like how =local-set-key= does. Is there a global counterpart, just to complement each other?
 
 #+begin_src elisp
   (bind (bind-global-map) "SPC" my-leader-map)
