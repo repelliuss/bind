@@ -38,7 +38,7 @@
   :prefix "bind-"
   :package-version '(Bind . "0.9.0"))
 
-(defcustom bind--metadata nil
+(defvar bind--metadata nil
   "A plist that carries the info available to upper bind functions to lowers'.
 This is so that binding processing functions don't make user
 type the same information again.  For example `bind-autoload' can
@@ -46,18 +46,16 @@ guess the file function to be autoloaded if not explicitly
 given.
 
 This variable will usually be populated lexically, though one can
-provide and make use of persistant data."
-  :type '(plist))
+provide and make use of persistant data.")
 
-(defcustom bind--definer #'define-key
+(defvar bind--definer #'define-key
   "A function that decides what to do with keymap, key and def.
 See `define-key' for what keymap, key and def is.
 
-This is the function called after all of the things are
-resolved.  For example it can define the key or unbind it such as
+This is the function called after all of the things are resolved.
+For example it can define the key or unbind it such as
 `bind--definer-unbind'.  See `bind--mappings-in-keymap' for where
-this is called."
-  :type 'function)
+this is called.")
 
 (defvar bind--savings nil
   "A lexical variable used by `bind-save'.")
