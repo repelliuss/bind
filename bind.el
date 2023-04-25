@@ -93,10 +93,10 @@ This function is a copy of `help-fns-find-keymap-name'."
   (when (keymapp keymap)
     (let ((name (catch 'found-keymap
                   (mapatoms (lambda (symb)
-                              (when (and (boundp symb)
-                                         (eq (symbol-value symb) keymap)
-                                         (not (eq symb 'keymap))
-                                         (throw 'found-keymap symb)))))
+                              (and (boundp symb)
+                                   (eq (symbol-value symb) keymap)
+                                   (not (eq symb 'keymap))
+                                   (throw 'found-keymap symb))))
                   nil)))
       ;; Follow aliasing.
       (or (ignore-errors (indirect-variable name)) name))))
@@ -122,12 +122,12 @@ so BINDINGS need to be flattened."
 
 (defmacro bind--singular (form)
   "Process a single bind FORM and bind many keys to many keymaps.
-FORM's first element can be a keymap, list of keymaps, a function
+FORM\\='s first element can be a keymap, list of keymaps, a function
 returning keymap (`setq') or keymaps (a user function).  It is
 quoted, if it is a keymap or a list of keymaps.
 
-FORM's rest elements must be bindings.  A binding is in the form
-of 'KEY DEF' where KEY and DEF has the same specs as in
+FORM\\='s rest elements must be bindings.  A binding is in the form
+of \\='KEY DEF\\=' where KEY and DEF has the same specs as in
 `define-key', in the case of `bind'.  It is up to `bind--definer'
 what to do with KEY and DEF.
 
@@ -154,7 +154,7 @@ wants.  User can easily define its processing function.  User is
 encouraged to make use of `bind-keyp', `bind-foreach-key-def',
 `bind-flatten1-key-of-bindings' and `bind-with-metadata' utility
 functions for their custom behavior.  See default processing
-functions' definitions for examples.
+functions\\=' definitions for examples.
 
 See commentary or homepage for examples."
   (let ((first (car form)))
@@ -180,15 +180,15 @@ Following is the logic for resolving bind main, in order,
 
 1. If BIND-FIRST is a keymap then BIND-FIRST
 2. If BIND-FIRST a function call then
-2.1 If BIND-FIRST is a call to 'bind-safe function
-    (a symbol that has 'bind-safe prop), then first of it is output
+2.1 If BIND-FIRST is a call to \\='bind-safe function
+    (a symbol that has \\='bind-safe prop), then first of it is output
 2.2 Otherwise first argument to function call (like to `setq').
 3. Otherwise first element of BIND-FIRST
 
-Only put 'bind-safe to a function if function doesn't mutate data.
+Only put \\='bind-safe to a function if function doesn\\='t mutate data.
 
 Bind main can be used by binding processor calls.  For example, `bind-repeat'
-uses it as a place for putting definitions 'repeat-map prop.
+uses it as a place for putting definitions \\='repeat-map prop.
 
 BIND-FIRST is the first element of bind form.  See `bind--singular' for
 what a form is."
@@ -371,3 +371,4 @@ This requires `repeat-mode' to be active to take effect."
 (provide 'bind)
 
 ;;; bind.el ends here
+
