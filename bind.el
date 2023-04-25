@@ -58,7 +58,7 @@ For example it can define the key or unbind it such as
 this is called.")
 
 (defvar bind--savings nil
-  "A lexical variable used by `bind-save'.")
+  "A lexical variable used by `bind-save' which stores a valid `bind' FORM.")
 
 (defun bind--definer-unbind (keymap key def)
   "Unbind KEY from KEYMAP and DEF from KEYMAP if DEF is actually a key.
