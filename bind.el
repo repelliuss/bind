@@ -118,6 +118,26 @@ so BINDINGS need to be flattened."
     (dolist (keymap keymap-s)
       (bind--mappings-in-keymap keymap bindings))))
 
+(defun bind--expand-functions (sexp)
+  "Expand keywords at head of lists in SEXP that ends with bind function names.
+This function lets you call bind functions without bind- package
+prefix but as keywords such that a keyword, `:example', will be
+replaced by `bind-example' if bind-example is `fboundp' and if
+the keyword is the first element of a list in `bind'
+FORM. Basically, places where you would write your function
+names."
+  (let ((expansion sexp))
+    (while sexp
+      (when (consp (car sexp))
+	(if-let* ((head-of-list (caar sexp))
+		  ((keywordp head-of-list))
+		  (sym (intern-soft (concat "bind-" (substring (symbol-name head-of-list) 1))))
+		  ((fboundp sym)))
+	    (setcar (car sexp) sym))
+	(setcar sexp (bind--expand-functions (car sexp))))
+      (setq sexp (cdr sexp)))
+    expansion))
+
 (defmacro bind--singular (form)
   "Process a single bind FORM and bind many keys to many keymaps.
 FORM\\='s first element can be a keymap, list of keymaps, a function
@@ -153,6 +173,19 @@ encouraged to make use of `bind-keyp', `bind-foreach-key-def',
 `bind-flatten1-key-of-bindings' and `bind-with-metadata' utility
 functions for their custom behavior.  See default processing
 functions\\=' definitions for examples.
+
+About synonyms,
+
+Instead of typing out fully typing omit function names, you can
+remove the bind- prefix and type remaining part as keyword. For
+example, you can write :prefix, :autoload, :repeat, :global-map,
+:local-map instead of bind-prefix, bind-autoload, bind-repeat,
+bind-global-map, bind-local-map, respectively. You can use this
+for user defined functions too if they are also prefixed with
+bind- package prefix. If indentation is not good for your the
+keyword, you can `(put :KEYWORD 'lisp-indent-function INDENT)'
+where `KEYWORD' is the string after bind- prefix and INDENT is
+the same as in `(declare (indent INDENT))'.
 
 See commentary or homepage for examples."
   (let ((first (car form)))
@@ -281,8 +314,8 @@ Syntax is `(bind FORM)' or `(bind (FORM)...)' so (FORM) is
 repeatable.  See `bind--singular' for what a FORM is.
 FORM-OR-FORMS can be a single FORM or list of FORMs."
   (if (bind--singularp form-or-forms)
-      `(bind--singular ,form-or-forms)
-    `(bind--multiple (bind--singular) ,form-or-forms)))
+      `(bind--singular ,(bind--expand-functions form-or-forms))
+    `(bind--multiple (bind--singular) ,(bind--expand-functions form-or-forms))))
 
 ;;;###autoload
 (defmacro bind-undo (&rest form)
@@ -330,6 +363,7 @@ etc."
 		key)
 	      new-bindings)))
     new-bindings))
+(put :prefix 'lisp-indent-function 1)
 
 ;;;###autoload
 (defun bind-autoload (&optional file-as-symbol-or-key &rest bindings)
@@ -349,6 +383,7 @@ configurator."
       (lambda (_key def)
 	(autoload def file nil t))))
   bindings)
+(put :autoload 'lisp-indent-function 1)
 
 ;; TODO: add target map support
 ;;;###autoload
@@ -365,8 +400,8 @@ This requires `repeat-mode' to be active to take effect."
       (display-warning 'bind-repeat
 		       (format "Couldn't repeat bindings: %s. No bind main given." bindings))))
   bindings)
+(put :repeat 'lisp-indent-function 0)
 
 (provide 'bind)
 
 ;;; bind.el ends here
-
