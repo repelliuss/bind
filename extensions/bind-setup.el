@@ -45,7 +45,7 @@
 
 ;;;###autoload
 (defmacro bind-setup-integrate (keyword)
-  "Integrate `bind' for `use-package' with KEYWORD."
+  "Integrate `bind' for `setup' with KEYWORD."
   `(setup-define ,keyword
      (lambda (&rest form)
        `(bind-with-metadata (:main-file ,(symbol-name (setup-get 'feature)))
