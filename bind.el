@@ -118,6 +118,12 @@ so BINDINGS need to be flattened."
     (dolist (keymap keymap-s)
       (bind--mappings-in-keymap keymap bindings))))
 
+(defun bind--synonymp (keyword)
+  (if-let* (((keywordp keyword))
+	    (sym (intern-soft (concat "bind-" (substring (symbol-name keyword) 1))))
+	    ((fboundp sym)))
+      sym))
+
 (defun bind--expand-functions (sexp)
   "Expand keywords at head of lists in SEXP that ends with bind function names.
 This function lets you call bind functions without bind- package
@@ -129,10 +135,7 @@ names."
   (let ((expansion sexp))
     (while sexp
       (when (consp (car sexp))
-	(if-let* ((head-of-list (caar sexp))
-		  ((keywordp head-of-list))
-		  (sym (intern-soft (concat "bind-" (substring (symbol-name head-of-list) 1))))
-		  ((fboundp sym)))
+	(if-let ((sym (bind--synonymp (caar sexp))))
 	    (setcar (car sexp) sym))
 	(setcar sexp (bind--expand-functions (car sexp))))
       (setq sexp (cdr sexp)))
@@ -231,11 +234,14 @@ what a form is."
        (cadr ,bind-first)))		; first arg to function
     (t (car ,bind-first))))		; first of list of keymaps
 
+(defun bind-fboundp (atom)
+  (or (fboundp atom) (bind--synonymp atom)))
+
 (defun bind--singularp (form)
   "T if `bind' FORM doesn't contain multiple `bind' forms."
   (let ((second (cadr form)))
     (or (bind-keyp second)
-	(and (symbolp (car second)) (fboundp (car second))))))
+	(and (symbolp (car second)) (bind-fboundp (car second))))))
 
 (defun bind--map-insertable-formp (form)
   "Return action for singular BIND FORM if a map can be insertable.
