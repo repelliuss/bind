@@ -119,25 +119,25 @@ so BINDINGS need to be flattened."
       (bind--mappings-in-keymap keymap bindings))))
 
 (defun bind--synonymp (keyword)
-  (if-let* (((keywordp keyword))
-	    (sym (intern-soft (concat "bind-" (substring (symbol-name keyword) 1))))
-	    ((fboundp sym)))
-      sym))
+  "Check if KEYWORD is a symbol when bind package prefix is prepended."
+  (when (keywordp keyword)
+    (or (intern-soft (concat "bind--" (substring (symbol-name keyword) 1)))
+	(intern-soft (concat "bind-" (substring (symbol-name keyword) 1))))))
 
-(defun bind--expand-functions (sexp)
+(defun bind--expand-synonyms (sexp)
   "Expand keywords at head of lists in SEXP that ends with bind function names.
 This function lets you call bind functions without bind- package
 prefix but as keywords such that a keyword, `:example', will be
 replaced by `bind-example' if bind-example is `fboundp' and if
 the keyword is the first element of a list in `bind'
-FORM. Basically, places where you would write your function
+FORM.  Basically, places where you would write your function
 names."
   (let ((expansion sexp))
     (while sexp
       (when (consp (car sexp))
 	(if-let ((sym (bind--synonymp (caar sexp))))
 	    (setcar (car sexp) sym))
-	(setcar sexp (bind--expand-functions (car sexp))))
+	(setcar sexp (bind--expand-synonyms (car sexp))))
       (setq sexp (cdr sexp)))
     expansion))
 
@@ -180,15 +180,16 @@ functions\\=' definitions for examples.
 About synonyms,
 
 Instead of typing out fully typing omit function names, you can
-remove the bind- prefix and type remaining part as keyword. For
-example, you can write :prefix, :autoload, :repeat, :global-map,
-:local-map instead of bind-prefix, bind-autoload, bind-repeat,
-bind-global-map, bind-local-map, respectively. You can use this
-for user defined functions too if they are also prefixed with
-bind- package prefix. If indentation is not good for your the
-keyword, you can `(put :KEYWORD 'lisp-indent-function INDENT)'
-where `KEYWORD' is the string after bind- prefix and INDENT is
-the same as in `(declare (indent INDENT))'.
+remove the bind- or bind-- prefix and type remaining part as
+keyword.  For example, you can write :prefix, :autoload, :repeat,
+:global-map, :local-map, :metadata instead of `bind-prefix',
+`bind-autoload', `bind-repeat', `bind-global-map', `bind-local-map',
+`bind--metadata', respectively.  You can use this for user defined
+functions too if they are also prefixed with bind- or bind--
+package prefix.  If indentation is not good for your the keyword,
+you can `(put :KEYWORD 'lisp-indent-function INDENT)' where
+`KEYWORD' is the string after bind- prefix and INDENT is the same
+as in `(declare (indent INDENT))'.
 
 See commentary or homepage for examples."
   (let ((first (car form)))
@@ -234,14 +235,11 @@ what a form is."
        (cadr ,bind-first)))		; first arg to function
     (t (car ,bind-first))))		; first of list of keymaps
 
-(defun bind-fboundp (atom)
-  (or (fboundp atom) (bind--synonymp atom)))
-
 (defun bind--singularp (form)
   "T if `bind' FORM doesn't contain multiple `bind' forms."
   (let ((second (cadr form)))
     (or (bind-keyp second)
-	(and (symbolp (car second)) (bind-fboundp (car second))))))
+	(and (symbolp (car second)) (fboundp (car second))))))
 
 (defun bind--map-insertable-formp (form)
   "Return action for singular BIND FORM if a map can be insertable.
@@ -319,9 +317,10 @@ and return the expected form."
 Syntax is `(bind FORM)' or `(bind (FORM)...)' so (FORM) is
 repeatable.  See `bind--singular' for what a FORM is.
 FORM-OR-FORMS can be a single FORM or list of FORMs."
-  (if (bind--singularp form-or-forms)
-      `(bind--singular ,(bind--expand-functions form-or-forms))
-    `(bind--multiple (bind--singular) ,(bind--expand-functions form-or-forms))))
+  (let ((expansion (bind--expand-synonyms form-or-forms)))
+    (if (bind--singularp expansion)
+      `(bind--singular ,expansion)
+    `(bind--multiple (bind--singular) ,expansion))))
 
 ;;;###autoload
 (defmacro bind-undo (&rest form)
