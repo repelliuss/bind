@@ -426,4 +426,3 @@ Note that definitions should also appear in TARGET-MAP."
 
 ;;; bind.el ends here
 
-;; TODO: readme

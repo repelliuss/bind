@@ -32,7 +32,7 @@ This is how you do it with =bind=.
  (bind my-window-map "d" #'delete-window)
 #+end_src
 
-Hey, but first I have to define =my-window-map=.
+First I have to define =my-window-map=.
 
 #+begin_src elisp
  (bind (setq my-window-map (make-sparse-keymap)) "d" #'delete-window)
@@ -71,7 +71,7 @@ I will be using those keymaps in multiple places.
         "l" #'windmove-right)
 #+end_src
 
-I want to bind =my-open-map= I previously have.
+I want to bind =my-open-map= I previously defined.
 
 #+begin_src elisp
   (bind my-window-map
@@ -240,11 +240,34 @@ Let's bind =my-leader-map= to global map at the end.
         (my-leader-map
          "o" my-open-map
          "w" my-window-map)
-        (global-map
+        ((current-global-map)
          "SPC" my-leader-map))
 #+end_src
 
-Can I provide a string like in =define-key=?
+This is all good. I get that they are just functions evaluating arbitrary code that take bindings and return bindings in the end. But they are a bit verbose and I don't usually evaluate them myself for debugging. Is there a concise way?
+
+#+begin_src elisp
+  (bind (my-window-map
+         (:repeat
+           (:prefix "m"
+             "h" #'windmove-left
+             "j" #'windmove-down
+             "k" #'windmove-up
+             "l" #'windmove-right)
+           "d" #'delete-window
+           "D" #'delete-other-windows
+           (:autoload :my-package
+             (:prefix "l"
+               "b" #'split-window-below
+               "r" #'split-window-right))))
+        (my-leader-map
+         "o" my-open-map
+         "w" my-window-map)
+        ((current-global-map)
+         "SPC" my-leader-map))
+#+end_src
+
+Can I provide a help string like in =define-key=?
 
 #+begin_src elisp
   (bind my-window-map
@@ -264,6 +287,7 @@ Hmm, =(bind-local-map)= is a function and seems to be returning a keymap just li
 
 #+begin_src elisp
   (bind (bind-global-map) "SPC" my-leader-map)
+  (bind (:global-map) "SPC" my-leader-map) ; same
 #+end_src
 
 Can I still remap a command just like in =define-key=?
@@ -296,7 +320,7 @@ All is good, but sometimes I do mistakes and lose my previous bindings. Is there
 
 * Upstreams
 
-I plan to get this on MELPA as of now.
+Available on [[https://www.melpa.org/#/][Melpa]].
 
 * About =bind=
 
@@ -316,6 +340,14 @@ Here are some gists about =bind=.
 - Every key binding in Emacs lives in a key map. Instead of providing different functions for specific cases, =bind= suggests one function.
 - Putting multiple =bind= forms in one =bind= call is same as calling each one on its own.
 - There are processing functions like =bind-prefix=, =bind-autoload= etc. which takes bindings and acts on them and returns bindings, possibly modified. Those can be nested as however wanted. =bind= carries information, metadata, at upper levels to lower levels and then processing function propagates backwards.
+- Processing functions are just any other arbitrary functions you can evaluate arbitrary code.
+
+
+** Synonyms
+
+All atoms in =bind= form can instead typed without package prefix (without ~bind-~ or ~bind--~) in keyword form. For example, =bind-prefix= can be written as =:prefix= and =bind-global-map= as =:global-map= etc.
+
+You lose the ability of evaluating them without expanding the macro but this is not needed most of the time except debugging.
 
 ** =bind-prefix=
 
@@ -323,7 +355,9 @@ Simplest processing function, prefixes each key with given prefix. Understands m
 
 ** =bind-repeat=
 
-Support for =repeat-mode=. Puts =repeat-map= property to definitions in bindings for bind =:main= property in metadata. Make sure =repeat-mode= is enabled.
+Support for =repeat-mode=. Puts =repeat-map= property to definitions in bindings for bind =:main= property in metadata, unless a target map is given. Note that definitions also need to be in that target map for =repeat-mode= to work.
+
+Make sure =repeat-mode= is enabled.
 
 ** =bind-autoload=
 
@@ -352,7 +386,19 @@ At the end of everything, =bind--definer= is called with =KEYMAP=, =KEY= and =DE
 
 =bind--metadata= is a lexical plist that carries information populated by upper bind calls to use from lower bind calls (nesting wise) so that information isn't repeated.
 
-=bind= only provides =bind-main= prop by resolving the main keymap by default.
+=bind= provides following properties.
+
+**** =:engine=
+
+Calling top level bind macro when =bind= is not used.
+
+For example, its value will be ~nil~ if =bind= is used and ='bind-undo= if =bind-undo= is used.
+
+Processor functions take different actions depending on different engines. For example =bind-repeat= my remove repeat property from definitions instead of putting them when =bind-undo= is used.
+
+**** =:main=
+
+Contains the main keymap for current =bind= forms.
 
 Following is the logic for resolving bind main, in order,
 
@@ -373,15 +419,19 @@ See =bind-autoload= for a use case.
 
 All a processor function must do is taking bindings and returning them, possibly modified. While doing so it can provide other utilities through bindings.
 
-User can easily define a processing function.  User is encouraged to make use of =bind-keyp=, =bind-foreach-key-def=, =bind-flatten1-key-of-bindings= and =bind-with-metadata= utility functions for their custom behavior.  See default processing functions' definitions for examples.
+Users are encouraged to define their own function which they can then evaluate arbitrary code.
+
+User is encouraged to make use of =bind-keyp=, =bind-foreach-key-def=, =bind-flatten1-key-of-bindings= and =bind-with-metadata= utility functions for their custom behavior.  See default processing functions' definitions for examples.
 
 =bind-flatten1-key-of-bindings= is especially useful because processing functions shouldn't assume bindings will be in =(KEY DEF)+= but =((KEY DEF)|((KEY DEF)+))+= form due to inner processing functions returning bindings in a list.
 
+You should also put indentation to its synonym for proper indentation. For example, =bind-prefix= defines,
+
+#+begin_src elisp
+  (put :prefix 'lisp-indent-function 1)
+#+end_src
+
 See a processing function I use [[https://github.com/repelliuss/bind/wiki#prefix-keys-with-user-mode-local-key-sequence][here]].
-
-* Comparison with other key binders
-
-*I believe* overall =bind= is simpler, more aesthetic and has a nicer interface, though others may have more functionality. This functionality /may/ be possible to do in =bind= but not yet provided. That functionality may also be overkill, i.e. =global-set-key= and =local-set-key=, and it may be achieved by other means without decompromising.
 
 * Package configurator support
 
