@@ -392,8 +392,9 @@ configurator."
 
 ;;;###autoload
 (defun bind-repeat (&optional target-map &rest bindings)
-  "Add repeat utility to each DEF in BINDINGS for TARGET-MAP or :main metadata.
-This requires `repeat-mode' to be active to take effect."
+  "Add repeat prop to each DEF in BINDINGS for TARGET-MAP or :main metadata.
+This requires `repeat-mode' to be active to take effect.
+Note that definitions should also appear in TARGET-MAP."
   (declare (indent 0))
   (when-let ((main (or (if (keymapp target-map)
 			   target-map
@@ -415,3 +416,5 @@ This requires `repeat-mode' to be active to take effect."
 (provide 'bind)
 
 ;;; bind.el ends here
+
+;; TODO: readme
