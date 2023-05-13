@@ -6,7 +6,7 @@
 ;; Maintainer: repelliuss <repelliuss@gmail.com>
 ;; Created: March 26, 2023
 ;; Modified: March 26, 2023
-;; Version: 0.9.0
+;; Version: 0.9.1
 ;; Package-Requires: ((emacs "25.1"))
 
 ;; Homepage: https://github.com/repelliuss/bind
@@ -36,7 +36,7 @@
   "Bind many keys to many keymaps."
   :group 'emacs
   :prefix "bind-"
-  :package-version '(Bind . "0.9.0"))
+  :package-version '(Bind . "0.9.1"))
 
 (defvar bind--metadata nil
   "A plist that carries the info available to upper bind functions to lowers'.
