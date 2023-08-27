@@ -239,7 +239,7 @@ what a form is."
   "T if `bind' FORM doesn't contain multiple `bind' forms."
   (let ((second (cadr form)))
     (or (bind-keyp second)
-	(and (symbolp (car second)) (fboundp (car second))))))
+	(and (symbolp (car second)) (fboundp (or (bind--synonymp (car second)) (car second)))))))
 
 (defun bind--map-insertable-formp (form)
   "Return action for singular BIND FORM if a map can be insertable.
