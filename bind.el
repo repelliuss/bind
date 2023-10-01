@@ -250,17 +250,12 @@ support.
   (cond
    ((bind-keyp (car form)) 'yes)	; (bind # ...)
    ((symbolp (car form)) 'no)		; (bind map ...)
+   ((memq (caar form) '(:global-map bind-global-map :local-map bind-local-map)) 'no)
    ((or (eq 'quote (caar form))
 	(not (symbolp (caar form)))) (error (concat "Bad FORM given to USE-PACKAGE :BIND. If (car FORM) "
 						    "neither key or symbol, then (caar FORM) must "
 						    "be equivalent to (SYMBOL ...).")))
-   ((and (or (bind--synonymp (caar form))
-	     (string-prefix-p "bind-" (symbol-name (caar form))))
-	 (not (memq (caar form) '(:global-map
-				  bind-global-map
-				  :local-map
-				  bind-local-map))))
-    'yes) ; (bind # (bind-* ...) ...)
+   ((or (bind--synonymp (caar form)) (string-prefix-p "bind-" (symbol-name (caar form)))) 'yes) ; (bind # (bind-* ...) ...)
    ((not (fboundp (caar form))) 'yes-merge) ; (bind (# map) ...)
    (t 'no)))				; (bind (function ...) ...)
 
