@@ -255,7 +255,13 @@ support.
 						    "neither key or symbol, then (caar FORM) must "
 						    "be equivalent to (SYMBOL ...).")))
    ((not (fboundp (caar form))) 'yes-merge) ; (bind (# map) ...)
-   ((string-prefix-p "bind-" (symbol-name (caar form))) 'yes) ; (bind # (bind-* ...) ...)
+   ((and (or (bind--synonymp (caar form))
+	     (string-prefix-p "bind-" (symbol-name (caar form))))
+	 (not (memq (caar form) '(:global-map
+				  bind-global-map
+				  :local-map
+				  bind-local-map))))
+    'yes) ; (bind # (bind-* ...) ...)
    (t 'no)))				; (bind (function ...) ...)
 
 (defun bind-keyp (exp)
