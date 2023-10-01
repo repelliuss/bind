@@ -254,7 +254,6 @@ support.
 	(not (symbolp (caar form)))) (error (concat "Bad FORM given to USE-PACKAGE :BIND. If (car FORM) "
 						    "neither key or symbol, then (caar FORM) must "
 						    "be equivalent to (SYMBOL ...).")))
-   ((not (fboundp (caar form))) 'yes-merge) ; (bind (# map) ...)
    ((and (or (bind--synonymp (caar form))
 	     (string-prefix-p "bind-" (symbol-name (caar form))))
 	 (not (memq (caar form) '(:global-map
@@ -262,6 +261,7 @@ support.
 				  :local-map
 				  bind-local-map))))
     'yes) ; (bind # (bind-* ...) ...)
+   ((not (fboundp (caar form))) 'yes-merge) ; (bind (# map) ...)
    (t 'no)))				; (bind (function ...) ...)
 
 (defun bind-keyp (exp)
