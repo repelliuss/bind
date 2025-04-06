@@ -66,6 +66,27 @@
 				                      ,@(cdr form))))))))
        :documentation "Bind BINDINGS in current map if FORM lets and intents to inserting current map."
        :debug '(form sexp))
+
+     (setup-define ,(intern (concat (symbol-name keyword) "-undo"))
+       (lambda (&rest form)
+         `(bind-with-metadata (:main-file ,(symbol-name (setup-get 'feature)))
+	        ,(let ((map (setup-get 'map)))
+	           (if (bind--singularp form)
+		           (pcase (bind--map-insertable-formp form)
+		             ('no `(bind-undo ,@form))
+		             ('yes `(bind-undo ,map ,@form))
+		             ('yes-merge `(bind-undo (,map ,@(car form))
+				                             ,@(cdr form))))
+	             (pcase (bind--map-insertable-formp (car form))
+		           ('no `(bind-undo ,@form))
+		           ('yes `(bind-undo (,map ,@(car form))
+			                         ,@(cdr form)))
+		           ('yes-merge `(bind-undo ((,map ,@(caar form))
+				                            ,@(cdar form))
+				                           ,@(cdr form))))))))
+       :documentation "Revert bind bindingins."
+       :debug '(form sexp))
+     
      (put ,keyword 'lisp-indent-function 0)))
 
 (provide 'bind-setup)
