@@ -46,25 +46,27 @@
 ;;;###autoload
 (defmacro bind-setup-integrate (keyword)
   "Integrate `bind' for `setup' with KEYWORD."
-  `(setup-define ,keyword
-     (lambda (&rest form)
-       `(bind-with-metadata (:main-file ,(symbol-name (setup-get 'feature)))
-	  ,(let ((map (setup-get 'map)))
-	     (if (bind--singularp form)
-		 (pcase (bind--map-insertable-formp form)
-		   ('no `(bind ,@form))
-		   ('yes `(bind ,map ,@form))
-		   ('yes-merge `(bind (,map ,@(car form))
-				      ,@(cdr form))))
-	       (pcase (bind--map-insertable-formp (car form))
-		 ('no `(bind ,@form))
-		 ('yes `(bind (,map ,@(car form))
-			      ,@(cdr form)))
-		 ('yes-merge `(bind ((,map ,@(caar form))
-				     ,@(cdar form))
-				    ,@(cdr form))))))))
-     :documentation "Bind BINDINGS in current map if FORM lets and intents to inserting current map."
-     :debug '(form sexp)))
+  `(progn
+     (setup-define ,keyword
+       (lambda (&rest form)
+         `(bind-with-metadata (:main-file ,(symbol-name (setup-get 'feature)))
+	        ,(let ((map (setup-get 'map)))
+	           (if (bind--singularp form)
+		           (pcase (bind--map-insertable-formp form)
+		             ('no `(bind ,@form))
+		             ('yes `(bind ,map ,@form))
+		             ('yes-merge `(bind (,map ,@(car form))
+				                        ,@(cdr form))))
+	             (pcase (bind--map-insertable-formp (car form))
+		           ('no `(bind ,@form))
+		           ('yes `(bind (,map ,@(car form))
+			                    ,@(cdr form)))
+		           ('yes-merge `(bind ((,map ,@(caar form))
+				                       ,@(cdar form))
+				                      ,@(cdr form))))))))
+       :documentation "Bind BINDINGS in current map if FORM lets and intents to inserting current map."
+       :debug '(form sexp))
+     (put ,keyword 'lisp-indent-function 0)))
 
 (provide 'bind-setup)
 
