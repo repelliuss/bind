@@ -73,14 +73,14 @@ Value is stored in `bind--savings' such a way that `bind''s form is kept
 as much as possible."
   (when-let ((keymap-name (bind--find-keymap-name keymap)))
     (let ((keymap-savings (alist-get keymap-name bind--savings))
-	  (cur-def (lookup-key keymap key)))
+	      (cur-def (lookup-key keymap key)))
       (unless keymap-savings
-	(push (list keymap-name) bind--savings))
+	    (push (list keymap-name) bind--savings))
       (setf (cdr (assoc keymap-name bind--savings))
-	    (nconc keymap-savings (list key
-					(cond
-					 ((keymapp cur-def) (bind--find-keymap-name cur-def))
-					 (t `(quote ,cur-def)))))))))
+	        (nconc keymap-savings (list key
+					                    (cond
+					                     ((keymapp cur-def) (bind--find-keymap-name cur-def))
+					                     (t `(quote ,cur-def)))))))))
 
 (defun bind--find-keymap-name (keymap)
   "Find the name of the variable with value KEYMAP.
@@ -104,9 +104,9 @@ This function is a copy of `help-fns-find-keymap-name'."
   (bind-foreach-key-def bindings
     (lambda (key def)
       (funcall bind--definer
-	       keymap
-	       (if (stringp key) (kbd key) key)
-	       def))))
+	           keymap
+	           (if (stringp key) (kbd key) key)
+	           def))))
 
 (defun bind--mappings-foreach-keymap (keymap-s bindings)
   "Define each key def mappings in one or more KEYMAP-S.
@@ -122,7 +122,7 @@ so BINDINGS need to be flattened."
   "Check if KEYWORD is a symbol when bind package prefix is prepended."
   (when (keywordp keyword)
     (or (intern-soft (concat "bind--" (substring (symbol-name keyword) 1)))
-	(intern-soft (concat "bind-" (substring (symbol-name keyword) 1))))))
+	    (intern-soft (concat "bind-" (substring (symbol-name keyword) 1))))))
 
 (defun bind--expand-synonyms (sexp)
   "Expand keywords at head of lists in SEXP that ends with bind function names.
@@ -135,9 +135,9 @@ names."
   (let ((expansion sexp))
     (while sexp
       (when (consp (car sexp))
-	(if-let ((sym (bind--synonymp (caar sexp))))
-	    (setcar (car sexp) sym))
-	(setcar sexp (bind--expand-synonyms (car sexp))))
+	    (if-let ((sym (bind--synonymp (caar sexp))))
+	        (setcar (car sexp) sym))
+	    (setcar sexp (bind--expand-synonyms (car sexp))))
       (setq sexp (cdr sexp)))
     expansion))
 
@@ -193,12 +193,9 @@ as in `(declare (indent INDENT))'.
 
 See commentary or homepage for examples."
   (let ((first (car form)))
-    `(bind-with-metadata (:main (bind--resolve-main ',first))
-       (bind--mappings-foreach-keymap ,(if (or (not (consp first))
-					       (fboundp (car first)))
-					   first
-					 `(list ,@first))
-				      (list ,@(cdr form))))))
+    `(bind-with-metadata (:keymaps (ensure-list ,first))
+       (bind--mappings-foreach-keymap (plist-get bind--metadata :keymaps)
+				                      (list ,@(cdr form))))))
 
 (defmacro bind--multiple (form-prefix forms)
   "Bind multiple `bind' FORMS.
@@ -209,37 +206,11 @@ example, its value is `(bind--singular)' when called by `bind'."
       (setq singular-binds (nconc singular-binds `((,@form-prefix ,form)))))
     (macroexp-progn singular-binds)))
 
-(defmacro bind--resolve-main (bind-first)
-  "Extract bind main from BIND-FIRST argument of `bind' form.
-Following is the logic for resolving bind main, in order,
-
-1. If BIND-FIRST is a keymap then BIND-FIRST
-2. If BIND-FIRST a function call then
-2.1 If BIND-FIRST is a call to \\='bind-safe function
-    (a symbol that has \\='bind-safe prop), then first of it is output
-2.2 Otherwise first argument to function call (like to `setq').
-3. Otherwise first element of BIND-FIRST
-
-Only put \\='bind-safe to a function if function doesn\\='t mutate data.
-
-Bind main can be used by binding processor calls.  For example, `bind-repeat'
-uses it as a place for putting definitions \\='repeat-map prop.
-
-BIND-FIRST is the first element of bind form.  See `bind--singular' for
-what a form is."
-  `(cond
-    ((symbolp ,bind-first) ,bind-first) ; itself
-    ((fboundp (car ,bind-first))
-     (if (get (car ,bind-first) 'bind-safe)
-	 (car (eval ,bind-first))	; first elt of return of function
-       (cadr ,bind-first)))		; first arg to function
-    (t (car ,bind-first))))		; first of list of keymaps
-
 (defun bind--singularp (form)
   "T if `bind' FORM doesn't contain multiple `bind' forms."
   (let ((second (cadr form)))
     (or (bind-keyp second)
-	(and (symbolp (car second)) (fboundp (or (bind--synonymp (car second)) (car second)))))))
+	    (and (symbolp (car second)) (fboundp (or (bind--synonymp (car second)) (car second)))))))
 
 (defun bind--map-insertable-formp (form)
   "Return action for singular BIND FORM if a map can be insertable.
@@ -252,9 +223,9 @@ support.
    ((symbolp (car form)) 'no)		; (bind map ...)
    ((memq (caar form) '(:global-map bind-global-map :local-map bind-local-map)) 'no)
    ((or (eq 'quote (caar form))
-	(not (symbolp (caar form)))) (error (concat "Bad FORM given to USE-PACKAGE :BIND. If (car FORM) "
-						    "neither key or symbol, then (caar FORM) must "
-						    "be equivalent to (SYMBOL ...).")))
+	    (not (symbolp (caar form)))) (error (concat "Bad FORM given to USE-PACKAGE :BIND. If (car FORM) "
+						                            "neither key or symbol, then (caar FORM) must "
+						                            "be equivalent to (SYMBOL ...).")))
    ((or (bind--synonymp (caar form)) (string-prefix-p "bind-" (symbol-name (caar form)))) 'yes) ; (bind # (bind-* ...) ...)
    ((not (fboundp (caar form))) 'yes-merge) ; (bind (# map) ...)
    (t 'no)))				; (bind (function ...) ...)
@@ -280,16 +251,16 @@ processor function) and one that probably uses
 DEF...).  This function can be used to merge list of new bindings
 and return the expected form."
   (let (new-bindings
-	(next-keyp t))
+	    (next-keyp t))
     (while bindings
       (let ((cur (car bindings)))
-	(if next-keyp
-	    (if (consp cur)
-		(setq new-bindings (nconc (nreverse cur) new-bindings))
+	    (if next-keyp
+	        (if (consp cur)
+		        (setq new-bindings (nconc (nreverse cur) new-bindings))
+	          (push cur new-bindings)
+	          (setq next-keyp nil))
 	      (push cur new-bindings)
-	      (setq next-keyp nil))
-	  (push cur new-bindings)
-	  (setq next-keyp t)))
+	      (setq next-keyp t)))
       (setq bindings (cdr bindings)))
     (nreverse new-bindings)))
 
@@ -309,8 +280,8 @@ and return the expected form."
   "Return local map while replicating the behavior of `local-set-key'."
   (or (current-local-map)
       (let ((local-map (make-sparse-keymap)))
-	(use-local-map local-map)
-	local-map)))
+	    (use-local-map local-map)
+	    local-map)))
 
 ;;;###autoload
 (defmacro bind (&rest form-or-forms)
@@ -320,8 +291,8 @@ repeatable.  See `bind--singular' for what a FORM is.
 FORM-OR-FORMS can be a single FORM or list of FORMs."
   (let ((expansion (bind--expand-synonyms form-or-forms)))
     (if (bind--singularp expansion)
-      `(bind--singular ,expansion)
-    `(bind--multiple (bind--singular) ,expansion))))
+        `(bind--singular ,expansion)
+      `(bind--multiple (bind--singular) ,expansion))))
 
 ;;;###autoload
 (defmacro bind-undo (&rest form)
@@ -341,7 +312,7 @@ result is unwanted.
 This function still evaluates functions inside FORM like
 `bind-repeat', so it is not side effect free."
   `(let (bind--savings
-	 (bind--definer #'bind--definer-save))
+	     (bind--definer #'bind--definer-save))
      (bind-with-metadata (:engine 'bind-save)
        (bind ,@form))
      bind--savings))
@@ -362,17 +333,17 @@ etc."
       bindings
     (setq bindings (bind-flatten1-key-of-bindings bindings))
     (let (new-bindings
-	  (prefix (concat prefix (if (string-match "\\([[:space:]]\\|^\\)\\(.-\\)+$"
-						   (car (last (split-string prefix))))
-				     ""
-				   " "))))
+	      (prefix (concat prefix (if (string-match "\\([[:space:]]\\|^\\)\\(.-\\)+$"
+						                           (car (last (split-string prefix))))
+				                     ""
+				                   " "))))
       (bind-foreach-key-def bindings
-	(lambda (key def)
-	  (push def new-bindings)
-	  (push (if (stringp key)
-		    (concat prefix key)
-		  key)
-		new-bindings)))
+	    (lambda (key def)
+	      (push def new-bindings)
+	      (push (if (stringp key)
+		            (concat prefix key)
+		          key)
+		        new-bindings)))
       new-bindings)))
 (put :prefix 'lisp-indent-function 1)
 
@@ -386,41 +357,40 @@ configurator."
   (when (not (plist-get bind--metadata :engine))
     (let (file)
       (if (symbolp file-as-symbol-or-key)
-	  (setq file (symbol-name file-as-symbol-or-key))
-	(setq file (plist-get bind--metadata :main-file)
-	      bindings `(,file-as-symbol-or-key ,@bindings)))
+	      (setq file (symbol-name file-as-symbol-or-key))
+	    (setq file (plist-get bind--metadata :main-file)
+	          bindings `(,file-as-symbol-or-key ,@bindings)))
       (if (not file) (error "Bad FILE-AS-SYMBOL-OR-KEY argument to BIND-AUTOLOAD"))
       (setq bindings (bind-flatten1-key-of-bindings bindings))
       (bind-foreach-key-def bindings
-	(lambda (_key def)
-	  (autoload def file nil t)))))
+	    (lambda (_key def)
+	      (autoload def file nil t)))))
   bindings)
 (put :autoload 'lisp-indent-function 1)
 
 ;;;###autoload
-(defun bind-repeat (&optional target-map &rest bindings)
-  "Add repeat prop to each DEF in BINDINGS for TARGET-MAP or :main metadata.
-This requires `repeat-mode' to be active to take effect.
-Note that definitions should also appear in TARGET-MAP."
-  (declare (indent 0))
-  (when-let ((main (or (if (keymapp target-map)
-			   target-map
-			 (setq bindings `(,target-map ,@bindings))
-			 nil)
-		       (if (keymapp (symbol-value (plist-get bind--metadata :main)))
-			   (plist-get bind--metadata :main)
-			 (display-warning 'bind-repeat
-					  (format "Couldn't repeat bindings: %s. No repeat map given."
-						  bindings))
-			 nil))))
+(defun bind-repeat (&optional target-map-s &rest bindings)
+    "Add repeat prop to each DEF in BINDINGS for TARGET-MAP or :main metadata.
+  This requires `repeat-mode' to be active to take effect.
+  Note that definitions should also appear in TARGET-MAP."
+    (declare (indent 0))
+    (unless (or (keymapp target-map-s) (consp target-map-s))
+      (setq bindings `(,target-map-s ,@bindings)
+            target-map-s nil))
     (setq bindings (bind-flatten1-key-of-bindings bindings))
-    (bind-foreach-key-def bindings
-      (if (not (plist-get bind--metadata :engine))
-	  (lambda (_key def)
-	    (put def 'repeat-map main))
-	(lambda (_key def)
-	  (put def 'repeat-map nil)))))
-  bindings)
+    (if-let ((keymaps (ensure-list (or target-map-s
+                                       (plist-get bind--metadata :keymaps)))))
+        (bind-foreach-key-def bindings
+          (if (plist-get bind--metadata :engine)
+              (lambda (_key def)
+                (put def 'repeat-map nil))
+            (lambda (_key def)
+              (dolist (keymap keymaps)
+                (put def 'repeat-map keymap)))))
+      (display-warning 'bind-repeat
+                       (format "Couldn't repeat bindings: %s. No repeat map given."
+                               bindings)))
+    bindings)
 (put :repeat 'lisp-indent-function 0)
 
 (provide 'bind)
