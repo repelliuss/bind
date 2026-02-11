@@ -111,7 +111,11 @@ BUNDLE must be a bind bundle: (PRIVATE . ((PRIV . (KEY . DEF)) ...))."
 
 (defun bind--mappings-foreach-keymap (keymap-s bundle)
   "Define each key def mappings in one or more KEYMAP-S.
-BUNDLE is a bind bundle."
+BUNDLE is a bind bundle.  Calls finalizers before binding."
+  ;; Call finalizers first
+  (dolist (finalizer (plist-get (bind-bundle-private bundle) :finalizers))
+    (funcall finalizer bundle))
+  ;; Then do the actual binding
   (if (keymapp keymap-s)
       (bind--mappings-in-keymap keymap-s bundle)
     (dolist (keymap keymap-s)
@@ -427,6 +431,49 @@ Returns a bundle."
                                bundle)))
     bundle))
 (put :repeat 'lisp-indent-function 0)
+
+;;;###autoload
+(defun bind-wk (doc &rest args)
+  "Add which-key DOC to bindings in ARGS.
+For single binding, DOC describes that binding.
+For multiple bindings (prefix case), DOC describes the prefix.
+Returns a bundle with :which-key data in binding private."
+  (declare (indent 1))
+  (let* ((bundle (apply #'bind--bundle-from-args args))
+         (bindings (bind-bundle-bindings bundle))
+         (first-binding (car bindings))
+         ;; prefix case = multiple bindings, trim 1; single = trim 0
+         (trim-count (if (> (length bindings) 1) 1 0))
+         (private (or (bind-binding-private first-binding) nil))
+         (wk-list (plist-get private :which-key))
+         (new-private (plist-put (copy-sequence private) :which-key
+                                 (cons (cons doc trim-count) wk-list)))
+         (new-first (bind-make-binding (bind-binding-key first-binding)
+                                       (bind-binding-def first-binding)
+                                       new-private))
+         (bundle-private (or (bind-bundle-private bundle) nil))
+         (finalizers (plist-get bundle-private :finalizers))
+         (new-bundle-private (plist-put (copy-sequence bundle-private)
+                                        :finalizers
+                                        (if (memq 'bind-wk-finalizer finalizers)
+                                            finalizers
+                                          (cons 'bind-wk-finalizer finalizers)))))
+    (bind-make-bundle (cons new-first (cdr bindings)) new-bundle-private)))
+(put :wk 'lisp-indent-function 1)
+
+(defun bind-wk-finalizer (bundle)
+  "Process which-key docs in BUNDLE and register with which-key."
+  (bind-foreach bundle
+    (lambda (key _def private)
+      (when-let ((wk-list (plist-get private :which-key)))
+        (dolist (entry wk-list)
+          (let* ((doc (car entry))
+                 (trim-count (cdr entry))
+                 (key-parts (split-string key))
+                 (target-key (if (zerop trim-count)
+                                 key
+                               (string-join (butlast key-parts trim-count) " "))))
+            (which-key-add-key-based-replacements target-key doc)))))))
 
 (provide 'bind)
 
