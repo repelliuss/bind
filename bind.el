@@ -99,24 +99,23 @@ This function is a copy of `help-fns-find-keymap-name'."
       ;; Follow aliasing.
       (or (ignore-errors (indirect-variable name)) name))))
 
-(defun bind--mappings-in-keymap (keymap bindings)
-  "Actualize defining each key def mapping in BINDINGS to KEYMAP."
-  (bind-foreach-key-def bindings
-    (lambda (key def)
+(defun bind--mappings-in-keymap (keymap bundle)
+  "Actualize defining each key def mapping in BUNDLE to KEYMAP.
+BUNDLE must be a bind bundle: (PRIVATE . ((PRIV . (KEY . DEF)) ...))."
+  (bind-foreach bundle
+    (lambda (key def _private)
       (funcall bind--definer
 	           keymap
 	           (if (stringp key) (kbd key) key)
 	           def))))
 
-(defun bind--mappings-foreach-keymap (keymap-s bindings)
+(defun bind--mappings-foreach-keymap (keymap-s bundle)
   "Define each key def mappings in one or more KEYMAP-S.
-This function will be called after each binding processor calls
-so BINDINGS need to be flattened."
-  (setq bindings (bind-flatten1-key-of-bindings bindings))
+BUNDLE is a bind bundle."
   (if (keymapp keymap-s)
-      (bind--mappings-in-keymap keymap-s bindings)
+      (bind--mappings-in-keymap keymap-s bundle)
     (dolist (keymap keymap-s)
-      (bind--mappings-in-keymap keymap bindings))))
+      (bind--mappings-in-keymap keymap bundle))))
 
 (defun bind--synonymp (keyword)
   "Check if KEYWORD is a symbol when bind package prefix is prepended."
@@ -169,13 +168,12 @@ behaves like a function so they are not quoted and will be
 evaluated, unless said so.  That way, bindings can be processed.
 For example, there are `bind-prefix', `bind-autoload' and
 `bind-repeat' processing functions.  They take bindings as input
-and return bindings and possibly transforming bindings but not
-required to.  They can be nested and used many times as one
-wants.  User can easily define its processing function.  User is
-encouraged to make use of `bind-keyp', `bind-foreach-key-def',
-`bind-flatten1-key-of-bindings' and `bind-with-metadata' utility
-functions for their custom behavior.  See default processing
-functions\\=' definitions for examples.
+and return a bundle.  They can be nested and used many times as
+one wants.  User can easily define its processing function.
+User is encouraged to make use of `bind-keyp', `bind-foreach',
+`bind-make-bundle', `bind-make-binding' and `bind-with-metadata'
+utility functions for their custom behavior.  See default
+processing functions\\=' definitions for examples.
 
 About synonyms,
 
@@ -195,7 +193,7 @@ See commentary or homepage for examples."
   (let ((first (car form)))
     `(bind-with-metadata (:keymaps (ensure-list ,first))
        (bind--mappings-foreach-keymap (plist-get bind--metadata :keymaps)
-				                      (list ,@(cdr form))))))
+				                      (bind--bundle-from-args ,@(cdr form))))))
 
 (defmacro bind--multiple (form-prefix forms)
   "Bind multiple `bind' FORMS.
@@ -234,35 +232,68 @@ support.
   "T if EXP is a valid key for `define-key'."
   (or (stringp exp) (vectorp exp)))
 
-(defun bind-foreach-key-def (bindings function)
-  "Call FUNCTION for each key def mappings in BINDINGS.
-FUNCTION is a function that takes key and def as arguments."
-  (declare (indent 1))
-  (while bindings
-    (funcall function (car bindings) (cadr bindings))
-    (setq bindings (cddr bindings))))
+;;; Bind bundle structure accessors/constructors
+;; Bundle: (PRIVATE-DATA . BINDINGS-LIST)
+;; Each binding: (BINDING-PRIVATE . (KEY . DEF))
 
-(defun bind-flatten1-key-of-bindings (bindings)
-  "Flatten each first level key definition in BINDINGS.
-A binding processor function will return list of new
-bindings.  A function that works on BINDINGS (such as another
-processor function) and one that probably uses
-`bind-foreach-key-def' expects bindings to be in the form of (KEY
-DEF...).  This function can be used to merge list of new bindings
-and return the expected form."
-  (let (new-bindings
-	    (next-keyp t))
-    (while bindings
-      (let ((cur (car bindings)))
-	    (if next-keyp
-	        (if (consp cur)
-		        (setq new-bindings (nconc (nreverse cur) new-bindings))
-	          (push cur new-bindings)
-	          (setq next-keyp nil))
-	      (push cur new-bindings)
-	      (setq next-keyp t)))
-      (setq bindings (cdr bindings)))
-    (nreverse new-bindings)))
+(defun bind-make-bundle (bindings-list &optional private)
+  "Create bind bundle with PRIVATE data and BINDINGS-LIST."
+  (cons private bindings-list))
+
+(defun bind-bundle-private (bundle)
+  "Get private data from bind BUNDLE."
+  (car bundle))
+
+(defun bind-bundle-bindings (bundle)
+  "Get bindings list from bind BUNDLE."
+  (cdr bundle))
+
+(defun bind-make-binding (key def &optional private)
+  "Create a binding with KEY, DEF, and optional PRIVATE data."
+  (cons private (cons key def)))
+
+(defun bind-binding-private (binding)
+  "Get private data from BINDING."
+  (car binding))
+
+(defun bind-binding-key (binding)
+  "Get key from BINDING."
+  (cadr binding))
+
+(defun bind-binding-def (binding)
+  "Get def from BINDING."
+  (cddr binding))
+
+(defun bind--bundle-from-args (&rest args)
+  "Convert ARGS in form (KEY DEF KEY DEF ... or BUNDLE ...) to a bind bundle.
+When a bundle appears in key position, its bindings are merged."
+  (let (bindings
+        (next-keyp t)
+        cur-key)
+    (while args
+      (let ((cur (car args)))
+        (if next-keyp
+            (if (and (consp cur) (listp (cdr cur)))
+                ;; Bundle in key position - merge its bindings
+                (dolist (b (bind-bundle-bindings cur))
+                  (push b bindings))
+              (setq cur-key cur
+                    next-keyp nil))
+          (push (bind-make-binding cur-key cur) bindings)
+          (setq next-keyp t)))
+      (setq args (cdr args)))
+    (bind-make-bundle (nreverse bindings))))
+
+(defun bind-foreach (bundle function)
+  "Call FUNCTION for each binding in BUNDLE.
+FUNCTION is a function that takes key, def, and private as arguments.
+BUNDLE must be a bind bundle: (PRIVATE . ((PRIV . (KEY . DEF)) ...))."
+  (declare (indent 1))
+  (dolist (binding (bind-bundle-bindings bundle))
+    (funcall function
+             (bind-binding-key binding)
+             (bind-binding-def binding)
+             (bind-binding-private binding))))
 
 (defmacro bind-with-metadata (plist &rest body)
   "Evaluate BODY with PLIST merged with `bind--metadata'."
@@ -324,73 +355,77 @@ This function still evaluates functions inside FORM like
      (bind ,@(eval save))))
 
 ;;;###autoload
-(defun bind-prefix (prefix &rest bindings)
-  "Prefix each KEY in BINDINGS with PREFIX of KEY is a string.
+(defun bind-prefix (prefix &rest args)
+  "Prefix each KEY in ARGS with PREFIX if KEY is a string.
 PREFIX can also be ending with a modifier, such as C-, S- C-S-
-etc."
+etc.  Returns a bundle."
   (declare (indent 1))
-  (if (plist-get bind--metadata :engine)
-      bindings
-    (setq bindings (bind-flatten1-key-of-bindings bindings))
-    (let (new-bindings
-	      (prefix (concat prefix (if (string-match "\\([[:space:]]\\|^\\)\\(.-\\)+$"
-						                           (car (last (split-string prefix))))
-				                     ""
-				                   " "))))
-      (bind-foreach-key-def bindings
-	    (lambda (key def)
-	      (push def new-bindings)
-	      (push (if (stringp key)
-		            (concat prefix key)
-		          key)
-		        new-bindings)))
-      new-bindings)))
+  (let ((bundle (apply #'bind--bundle-from-args args)))
+    (if (plist-get bind--metadata :engine)
+        bundle
+      (let (new-bindings
+	        (prefix (concat prefix (if (string-match "\\([[:space:]]\\|^\\)\\(.-\\)+$"
+						                             (car (last (split-string prefix))))
+				                       ""
+				                     " "))))
+        (bind-foreach bundle
+	      (lambda (key def private)
+	        (push (bind-make-binding
+                   (if (stringp key)
+		               (concat prefix key)
+		             key)
+                   def
+                   private)
+                  new-bindings)))
+        (bind-make-bundle (nreverse new-bindings))))))
 (put :prefix 'lisp-indent-function 1)
 
 ;;;###autoload
-(defun bind-autoload (&optional file-as-symbol-or-key &rest bindings)
-  "If FILE-AS-SYMBOL-OR-KEY if symbol autoload DEF in BINDINGS or use metadata.
-Note that `bind' doesn't provide :main-file prop so user must
-provide it.  For example, one can utilize its package
-configurator."
+(defun bind-autoload (&optional file-or-key &rest args)
+  "Autoload DEFs in ARGS from FILE-OR-KEY or :main-file metadata.
+If FILE-OR-KEY is a symbol, it's used as the file name.
+Otherwise it's treated as a key and :main-file metadata is used.
+Returns a bundle."
   (declare (indent 1))
-  (when (not (plist-get bind--metadata :engine))
-    (let (file)
-      (if (symbolp file-as-symbol-or-key)
-	      (setq file (symbol-name file-as-symbol-or-key))
-	    (setq file (plist-get bind--metadata :main-file)
-	          bindings `(,file-as-symbol-or-key ,@bindings)))
-      (if (not file) (error "Bad FILE-AS-SYMBOL-OR-KEY argument to BIND-AUTOLOAD"))
-      (setq bindings (bind-flatten1-key-of-bindings bindings))
-      (bind-foreach-key-def bindings
-	    (lambda (_key def)
-	      (autoload def file nil t)))))
-  bindings)
+  (let (file)
+    (if (symbolp file-or-key)
+        (setq file (symbol-name file-or-key))
+      (setq file (plist-get bind--metadata :main-file)
+            args `(,file-or-key ,@args)))
+    (let ((bundle (apply #'bind--bundle-from-args args)))
+      (when (not (plist-get bind--metadata :engine))
+        (if (not file)
+            (error "No file given to BIND-AUTOLOAD and no :main-file in metadata"))
+        (bind-foreach bundle
+	      (lambda (_key def _private)
+	        (autoload def file nil t))))
+      bundle)))
 (put :autoload 'lisp-indent-function 1)
 
 ;;;###autoload
-(defun bind-repeat (&optional target-map-s &rest bindings)
-    "Add repeat prop to each DEF in BINDINGS for TARGET-MAP or :main metadata.
-  This requires `repeat-mode' to be active to take effect.
-  Note that definitions should also appear in TARGET-MAP."
-    (declare (indent 0))
-    (unless (or (keymapp target-map-s) (consp target-map-s))
-      (setq bindings `(,target-map-s ,@bindings)
-            target-map-s nil))
-    (setq bindings (bind-flatten1-key-of-bindings bindings))
+(defun bind-repeat (&optional target-map-s &rest args)
+  "Add repeat prop to each DEF in ARGS for TARGET-MAP-S or :keymaps metadata.
+This requires `repeat-mode' to be active to take effect.
+Note that definitions should also appear in TARGET-MAP-S.
+Returns a bundle."
+  (declare (indent 0))
+  (unless (or (keymapp target-map-s) (consp target-map-s))
+    (setq args `(,target-map-s ,@args)
+          target-map-s nil))
+  (let ((bundle (apply #'bind--bundle-from-args args)))
     (if-let ((keymaps (ensure-list (or target-map-s
                                        (plist-get bind--metadata :keymaps)))))
-        (bind-foreach-key-def bindings
+        (bind-foreach bundle
           (if (plist-get bind--metadata :engine)
-              (lambda (_key def)
+              (lambda (_key def _private)
                 (put def 'repeat-map nil))
-            (lambda (_key def)
+            (lambda (_key def _private)
               (dolist (keymap keymaps)
                 (put def 'repeat-map keymap)))))
       (display-warning 'bind-repeat
                        (format "Couldn't repeat bindings: %s. No repeat map given."
-                               bindings)))
-    bindings)
+                               bundle)))
+    bundle))
 (put :repeat 'lisp-indent-function 0)
 
 (provide 'bind)
