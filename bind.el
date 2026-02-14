@@ -38,9 +38,15 @@
   :prefix "bind-"
   :package-version '(Bind . "0.9.1"))
 
+(defcustom bind-finalizers '(bind-wk-finalizer)
+  "List of finalizer functions to call before binding.
+Each function is called with the bundle as argument."
+  :type '(repeat function)
+  :group 'bind)
+
 (defvar bind--metadata nil
   "A plist that carries the info available to upper bind functions to lowers'.
-This is so that binding processing functions don't make user
+This is so that binding processing functions don\\='t make user
 type the same information again.  For example `bind-autoload' can
 guess the file function to be autoloaded if not explicitly
 given.
@@ -113,7 +119,7 @@ BUNDLE must be a bind bundle: (PRIVATE . ((PRIV . (KEY . DEF)) ...))."
   "Define each key def mappings in one or more KEYMAP-S.
 BUNDLE is a bind bundle.  Calls finalizers before binding."
   ;; Call finalizers first
-  (dolist (finalizer (plist-get (bind-bundle-private bundle) :finalizers))
+  (dolist (finalizer bind-finalizers)
     (funcall finalizer bundle))
   ;; Then do the actual binding
   (if (keymapp keymap-s)
@@ -189,13 +195,13 @@ keyword.  For example, you can write :prefix, :autoload, :repeat,
 `bind--metadata', respectively.  You can use this for user defined
 functions too if they are also prefixed with bind- or bind--
 package prefix.  If indentation is not good for your the keyword,
-you can `(put :KEYWORD 'lisp-indent-function INDENT)' where
+you can `(put :KEYWORD \\='lisp-indent-function INDENT)' where
 `KEYWORD' is the string after bind- prefix and INDENT is the same
 as in `(declare (indent INDENT))'.
 
 See commentary or homepage for examples."
   (let ((first (car form)))
-    `(bind-with-metadata (:keymaps (ensure-list ,first))
+    `(bind-with-metadata (:keymaps (bind-ensure-list ,first))
        (bind--mappings-foreach-keymap (plist-get bind--metadata :keymaps)
 				                      (bind--bundle-from-args ,@(cdr form))))))
 
@@ -209,7 +215,7 @@ example, its value is `(bind--singular)' when called by `bind'."
     (macroexp-progn singular-binds)))
 
 (defun bind--singularp (form)
-  "T if `bind' FORM doesn't contain multiple `bind' forms."
+  "T if `bind' FORM doesn\\='t contain multiple `bind' forms."
   (let ((second (cadr form)))
     (or (bind-keyp second)
 	    (and (symbolp (car second)) (fboundp (or (bind--synonymp (car second)) (car second)))))))
@@ -235,6 +241,13 @@ support.
 (defun bind-keyp (exp)
   "T if EXP is a valid key for `define-key'."
   (or (stringp exp) (vectorp exp)))
+
+(defun bind-ensure-list (keymap-or-list)
+  "Ensure KEYMAP-OR-LIST is a list of keymaps.
+Unlike `ensure-list', this properly handles keymaps which are themselves lists."
+  (if (keymapp keymap-or-list)
+      (list keymap-or-list)
+    (ensure-list keymap-or-list)))
 
 ;;; Bind bundle structure accessors/constructors
 ;; Bundle: (PRIVATE-DATA . BINDINGS-LIST)
@@ -270,23 +283,26 @@ support.
 
 (defun bind--bundle-from-args (&rest args)
   "Convert ARGS in form (KEY DEF KEY DEF ... or BUNDLE ...) to a bind bundle.
-When a bundle appears in key position, its bindings are merged."
+When a bundle appears in key position, its bindings and private data are merged."
   (let (bindings
+        private
         (next-keyp t)
         cur-key)
     (while args
       (let ((cur (car args)))
         (if next-keyp
             (if (and (consp cur) (listp (cdr cur)))
-                ;; Bundle in key position - merge its bindings
-                (dolist (b (bind-bundle-bindings cur))
-                  (push b bindings))
+                ;; Bundle in key position - merge its bindings and private data
+                (progn
+                  (dolist (b (bind-bundle-bindings cur))
+                    (push b bindings))
+                  (setq private (append (bind-bundle-private cur) private)))
               (setq cur-key cur
                     next-keyp nil))
           (push (bind-make-binding cur-key cur) bindings)
           (setq next-keyp t)))
       (setq args (cdr args)))
-    (bind-make-bundle (nreverse bindings))))
+    (bind-make-bundle (nreverse bindings) private)))
 
 (defun bind-foreach (bundle function)
   "Call FUNCTION for each binding in BUNDLE.
@@ -450,30 +466,26 @@ Returns a bundle with :which-key data in binding private."
                                  (cons (cons doc trim-count) wk-list)))
          (new-first (bind-make-binding (bind-binding-key first-binding)
                                        (bind-binding-def first-binding)
-                                       new-private))
-         (bundle-private (or (bind-bundle-private bundle) nil))
-         (finalizers (plist-get bundle-private :finalizers))
-         (new-bundle-private (plist-put (copy-sequence bundle-private)
-                                        :finalizers
-                                        (if (memq 'bind-wk-finalizer finalizers)
-                                            finalizers
-                                          (cons 'bind-wk-finalizer finalizers)))))
-    (bind-make-bundle (cons new-first (cdr bindings)) new-bundle-private)))
+                                       new-private)))
+    (bind-make-bundle (cons new-first (cdr bindings)))))
 (put :wk 'lisp-indent-function 1)
 
 (defun bind-wk-finalizer (bundle)
-  "Process which-key docs in BUNDLE and register with which-key."
-  (bind-foreach bundle
-    (lambda (key _def private)
-      (when-let ((wk-list (plist-get private :which-key)))
-        (dolist (entry wk-list)
-          (let* ((doc (car entry))
-                 (trim-count (cdr entry))
-                 (key-parts (split-string key))
-                 (target-key (if (zerop trim-count)
-                                 key
-                               (string-join (butlast key-parts trim-count) " "))))
-            (which-key-add-key-based-replacements target-key doc)))))))
+  "Process which-key docs in BUNDLE and register with which-key per keymap."
+  (let ((keymaps (plist-get bind--metadata :keymaps)))
+    (bind-foreach bundle
+      (lambda (key _def private)
+        (when-let ((wk-list (plist-get private :which-key)))
+          (dolist (entry wk-list)
+            (let* ((doc (car entry))
+                   (trim-count (cdr entry))
+                   (key-parts (split-string key))
+                   (target-key (if (zerop trim-count)
+                                   key
+                                 (string-join (butlast key-parts trim-count) " "))))
+              (with-eval-after-load 'which-key
+                (dolist (keymap keymaps)
+                  (which-key-add-keymap-based-replacements keymap target-key doc))))))))))
 
 (provide 'bind)
 
