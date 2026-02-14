@@ -7,7 +7,7 @@
 ;; Created: March 26, 2023
 ;; Modified: March 26, 2023
 ;; Version: 0.9.0
-;; Package-Requires: ((bind "0.9") (setup "1.3") (emacs "25.1"))
+;; Package-Requires: ((bind "0.9") (emacs "25.1"))
 
 ;; Homepage: https://github.com/repelliuss/bind
 
@@ -40,13 +40,12 @@
 
 ;;; Code:
 
-(require 'setup)
 (require 'bind)
 
 ;;;###autoload
 (defmacro bind-setup-integrate (keyword)
   "Integrate `bind' for `setup' with KEYWORD."
-  `(progn
+  `(with-eval-after-load 'setup
      (setup-define ,keyword
        (lambda (&rest form)
          `(bind-with-metadata (:main-file ,(symbol-name (setup-get 'feature)))
